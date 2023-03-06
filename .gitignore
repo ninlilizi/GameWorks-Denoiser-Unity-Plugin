@@ -9,6 +9,7 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Mm]emoryCaptures/
+UnityProject/Library
 
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 !/[Aa]ssets/**/*.meta
@@ -58,3 +59,66 @@ sysinfo.txt
 # Crashlytics generated file
 crashlytics-build.properties
 
+# cpp build locations
+# cmake
+CMakeFiles/
+.cmake/
+*.dir/
+*.tlog/
+CMakeCache.txt
+cmake_install.cmake
+*.recipe
+
+# make
+Makefile
+
+# VS
+*.vcxproj*
+*.sln
+.vs/
+*.args.json
+*.manifest
+
+# VS Code
+.vscode/
+
+# shaders
+*.dxbc
+*.dxil
+*.spirv
+*.dxbc.h
+*.dxil.h
+*.spirv.h
+NRDEncoding.hlsli
+
+# ninja
+.ninja_deps
+.ninja_log
+build.ninja
+compile_commands.json
+*.log
+*.ninja
+
+# library
+*.lib
+*.exp
+*.dll
+*.ilk
+*.pdb
+*.so
+*.so.*
+*.manifest
+*.obj
+
+# external packages
+PluginSource/NRI/External/NVAPI/
+PluginSource/NRI/External/AGS/
+
+# generated folders
+PluginSource/NRI/_Build/
+PluginSource/NRI/_Compiler/
+PluginSource/NRI/_NRI_SDK/
+PluginSource/NRD/_Build/
+PluginSource/NRD/_Compiler/
+PluginSource/NRD/_NRD_SDK/
+PluginSource/build
