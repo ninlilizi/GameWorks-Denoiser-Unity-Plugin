@@ -9,8 +9,9 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Mm]emoryCaptures/
-UnityProject/Library
-UnityProject/UserSettings
+/UnityProject/Library/
+/UnityProject/UserSettings/
+/UnityProject/Temp
 
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 !/[Aa]ssets/**/*.meta
