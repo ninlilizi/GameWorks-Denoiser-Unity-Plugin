@@ -31,7 +31,7 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
-	void Initialize(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
+	void Initialize(int renderWidth, int renderHeight, void* diffuseInHandle, void* specularInHandle, void* diffuseOutHandle, void* specularOutHandle);
 	void Denoise(int frameIndex);
 
 private:
@@ -299,7 +299,7 @@ void RenderAPI_D3D11::EndModifyVertexBuffer(void* bufferHandle)
 }
 
 
-void RenderAPI_D3D11::Initialize(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+void RenderAPI_D3D11::Initialize(int renderWidth, int renderHeight, void* diffuseInHandle, void* specularInHandle, void* diffuseOutHandle, void* specularOutHandle)
 {
 }
 
