@@ -1,3 +1,6 @@
+#pragma comment(lib, "dxgi")
+#pragma comment(lib, "d3d12")
+
 #include "RenderAPI.h"
 #include "PlatformBase.h"
 
@@ -13,8 +16,8 @@
 #include "Unity/IUnityGraphicsD3D12.h"
 
 #include <dxgi.h>
-//#include <wrl/client.h>
-//using Microsoft::WRL::ComPtr;
+#include <wrl/client.h>
+using Microsoft::WRL::ComPtr;
 
 
 // Gameworkds
@@ -24,6 +27,8 @@
 #include "../NRI/_NRI_SDK/Include/Extensions/NRIHelper.h"
 #include "../NRD/_NRD_SDK/Include/NRD.h"
 #include "../NRD/_NRD_SDK/Integration/NRDIntegration.h"
+#include <dxgi1_4.h>
+//#include <dxgi1_5.h>
 
 const int maxNumberOfFramesInFlight = 3;
 NrdIntegration NRD = NrdIntegration(maxNumberOfFramesInFlight);
@@ -65,8 +70,7 @@ private:
 	ID3D12Resource* s_D3D12Upload;
 	ID3D12CommandAllocator* s_D3D12CmdAlloc;
 	ID3D12GraphicsCommandList* s_D3D12CmdList;
-	IDXGIDevice* s_IDXGIDevice;
-	IDXGIAdapter* s_IDXGIAdapter;
+	IDXGIAdapter1* s_IDXGIAdapter;
 	UINT64 s_D3D12FenceValue = 0;
 	HANDLE s_D3D12Event = NULL;
 };
@@ -86,7 +90,6 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, s_D3D12Upload(NULL)
 	, s_D3D12CmdAlloc(NULL)
 	, s_D3D12CmdList(NULL)
-	, s_IDXGIDevice(NULL)
 	, s_IDXGIAdapter(NULL)
 	, s_D3D12FenceValue(0)
 	, s_D3D12Event(NULL)
@@ -185,9 +188,55 @@ void RenderAPI_D3D12::CreateResources()
 	s_D3D12FenceValue = 0;
 	s_D3D12Event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-	// DXGI refs
-	device->QueryInterface(__uuidof(IDXGIDevice), (void**)&s_IDXGIDevice);
-	s_IDXGIDevice->GetAdapter(&s_IDXGIAdapter);
+	// DXGI
+	ComPtr<IDXGIFactory4> dxgiFactory;
+	hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
+
+	for (UINT adapterIndex = 0; DXGI_ERROR_NOT_FOUND != dxgiFactory->EnumAdapters1(adapterIndex, &s_IDXGIAdapter); ++adapterIndex)
+	{
+		DXGI_ADAPTER_DESC1 desc;
+		hr = s_IDXGIAdapter->GetDesc1(&desc);
+		if (FAILED(hr))
+			continue;
+
+		if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+		{
+			// Don't select the Basic Render Driver adapter.
+			continue;
+		}
+
+		// Check to see if the adapter supports Direct3D 12,
+		// but don't create the actual device yet.
+		if (SUCCEEDED(
+			D3D12CreateDevice(s_IDXGIAdapter, D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+		{
+			break;
+		}
+	}
+
+
+	// Wrap native device
+
+	// Wrap the device
+	nri::DeviceCreationD3D12Desc deviceDesc = {};
+	deviceDesc.d3d12Device = device;
+	deviceDesc.d3d12PhysicalAdapter = s_IDXGIAdapter;
+	deviceDesc.d3d12GraphicsQueue = s_D3D12->GetCommandQueue();
+	deviceDesc.enableNRIValidation = false;
+
+	nri::Device* nriDevice = nullptr;
+	nri::Result nriResult = nri::CreateDeviceFromD3D12Device(deviceDesc, nriDevice);
+
+	// Get core functionality
+	nriResult = nri::GetInterface(*nriDevice,
+		NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI);
+
+	nriResult = nri::GetInterface(*nriDevice,
+		NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI);
+
+	// Get appropriate "wrapper" extension (XXX - can be D3D11, D3D12 or VULKAN)
+	nriResult = nri::GetInterface(*nriDevice,
+		NRI_INTERFACE(nri::WrapperD3D12Interface), (nri::WrapperD3D12Interface*)&NRI);
 }
 
 
@@ -198,7 +247,6 @@ void RenderAPI_D3D12::ReleaseResources()
 		CloseHandle(s_D3D12Event);
 	SAFE_RELEASE(s_D3D12CmdList);
 	SAFE_RELEASE(s_D3D12CmdAlloc);
-	SAFE_RELEASE(s_IDXGIDevice);
 	SAFE_RELEASE(s_IDXGIAdapter);
 }
 

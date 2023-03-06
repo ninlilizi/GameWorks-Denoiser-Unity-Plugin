@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: dd7c597f242d742cd9d8d87782826684
+guid: 017d4b741b8d94d4e9eeb7a7cd5e42a4
 PluginImporter:
   externalObjects: {}
   serializedVersion: 2
@@ -14,20 +14,39 @@ PluginImporter:
   - first:
       Any: 
     second:
-      enabled: 0
+      enabled: 1
       settings: {}
   - first:
       Editor: Editor
     second:
       enabled: 0
       settings:
+        CPU: x86_64
         DefaultValueInitialized: true
   - first:
-      iPhone: iOS
+      Standalone: Linux64
     second:
       enabled: 1
       settings:
-        AddToEmbeddedBinaries: false
+        CPU: x86_64
+  - first:
+      Standalone: OSXUniversal
+    second:
+      enabled: 1
+      settings:
+        CPU: x86_64
+  - first:
+      Standalone: Win
+    second:
+      enabled: 0
+      settings:
+        CPU: None
+  - first:
+      Standalone: Win64
+    second:
+      enabled: 1
+      settings:
+        CPU: x86_64
   userData: 
   assetBundleName: 
   assetBundleVariant: 
