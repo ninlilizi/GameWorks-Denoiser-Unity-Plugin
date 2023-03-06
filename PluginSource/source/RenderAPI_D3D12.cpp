@@ -64,7 +64,9 @@ private:
 	ID3D12Resource* GetUploadResource(UINT64 size);
 	void CreateResources();
 	void ReleaseResources();
-	void InitializeNRD(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
+	void Initialize(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
+	void InitializeNRD(int renderWidth, int renderHeight);
+	void Denoise(int frameIndex);
 
 private:
 	IUnityGraphicsD3D12v4* s_D3D12;
@@ -238,23 +240,35 @@ void RenderAPI_D3D12::CreateResources()
 
 	// Get appropriate "wrapper" extension (XXX - can be D3D11, D3D12 or VULKAN)
 	nriResult = nri::GetInterface(*s_nriDevice, NRI_INTERFACE(nri::WrapperD3D12Interface), (nri::WrapperD3D12Interface*)&NRI);
+
+	// Initialize NRD
+	InitializeNRD(256, 256);
 }
 
 
-void RenderAPI_D3D12::InitializeNRD(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+void RenderAPI_D3D12::InitializeNRD(int renderWidth, int renderHeight)
 {
 	// Initialize NRD
 	const nrd::MethodDesc methodDescs[] =
 	{
 		// Put neeeded methods here, like:
-		{ nrd::Method::REBLUR_DIFFUSE, renderWidth, renderHeight },
+		{ nrd::Method::REBLUR_DIFFUSE, 256, 256 },
 	};
 
 	nrd::DenoiserCreationDesc denoiserCreationDesc = {};
 	denoiserCreationDesc.requestedMethods = methodDescs;
 	denoiserCreationDesc.requestedMethodsNum = 1;
 
-	bool result = NRD.Initialize(denoiserCreationDesc , *s_nriDevice, NRI, NRI);
+	bool result = NRD.Initialize(denoiserCreationDesc, *s_nriDevice, NRI, NRI);
+}
+
+
+void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+{
+	// Initialize NRD
+	NRD.Destroy();
+	InitializeNRD(renderWidth, renderHeight);
+
 
 	// Wrap pointers
 
@@ -281,6 +295,38 @@ void RenderAPI_D3D12::InitializeNRD(int renderWidth, int renderHeight, void* dif
 }
 
 
+void RenderAPI_D3D12::Denoise(int frameIndex)
+{
+	// Populate common settings
+	//  - for the first time use defaults
+	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
+	nrd::CommonSettings commonSettings = {};
+	//PopulateCommonSettings(commonSettings);
+
+	// Set settings for each method in the NRD instance
+	nrd::ReblurSettings settings = {};
+	//PopulateXxxSettings(settings);
+
+	NRD.SetMethodSettings(nrd::Method::REBLUR_DIFFUSE, &settings);
+	NRD.SetMethodSettings(nrd::Method::REBLUR_SPECULAR, &settings);
+
+	// Fill up the user pool
+	NrdUserPool userPool = {};
+	{
+		// Fill only required "in-use" inputs and outputs in appropriate slots using entryDescs & entryFormat,
+		// applying remapping if necessary. Unused slots will be {nullptr, nri::Format::UNKNOWN}
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST, *(NrdIntegrationTexture*&)textureDescs[0].texture);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_SPEC_HITDIST, *(NrdIntegrationTexture*&)textureDescs[1].texture);
+
+	};
+
+	// Better use "true" if resources are not changing between frames (i.e. are not suballocated from a heap)
+	bool enableDescriptorCaching = true;
+
+	NRD.Denoise(frameIndex, *s_nriCommandBuffer, commonSettings, userPool, enableDescriptorCaching);
+}
+
+
 void RenderAPI_D3D12::ReleaseResources()
 {
 	SAFE_RELEASE(s_D3D12Upload);
@@ -295,10 +341,10 @@ void RenderAPI_D3D12::ReleaseResources()
 	// Better do it only once on shutdown
 	for (uint32_t i = 0; i < 1; i++)
 	{
-		NRI.DestroyTexture(*(nri::Texture*&)textureDescs[i].texture);
+		if (textureDescs[i].texture != nullptr) NRI.DestroyTexture(*(nri::Texture*&)textureDescs[i].texture);
 	}
 
-	NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
+	if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
 
 	// Release wrapped device
 	//NRI.DestroyDevice(*s_nriDevice);

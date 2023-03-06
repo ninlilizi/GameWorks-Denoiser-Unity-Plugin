@@ -49,7 +49,8 @@ public:
 	virtual void EndModifyVertexBuffer(void* bufferHandle) = 0;
 
 	// Initialize NDR
-	virtual void InitializeNRD(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle) = 0;
+	virtual void Initialize(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle) = 0;
+	virtual void Denoise(int frameIndex) = 0;
 };
 
 

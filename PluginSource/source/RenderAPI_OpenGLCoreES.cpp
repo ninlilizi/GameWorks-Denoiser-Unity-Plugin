@@ -54,7 +54,8 @@ public:
 
 private:
 	void CreateResources();
-	void InitializeNRD(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
+	void Initialize(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
+	void Denoise(int frameIndex);
 
 private:
 	UnityGfxRenderer m_APIType;
@@ -311,9 +312,13 @@ void RenderAPI_OpenGLCoreES::EndModifyVertexBuffer(void* bufferHandle)
 }
 
 
-void RenderAPI_OpenGLCoreES::InitializeNRD(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+void RenderAPI_OpenGLCoreES::Initialize(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
 {
+}
 
+
+void RenderAPI_OpenGLCoreES::Denoise(int frameIndex)
+{
 }
 
 #endif // #if SUPPORT_OPENGL_UNIFIED
