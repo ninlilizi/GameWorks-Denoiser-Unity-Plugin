@@ -31,6 +31,7 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
+	void InitializeNRD(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
 
 private:
 	ID3D11Device* m_Device;
@@ -294,6 +295,12 @@ void RenderAPI_D3D11::EndModifyVertexBuffer(void* bufferHandle)
 	m_Device->GetImmediateContext(&ctx);
 	ctx->Unmap(d3dbuf, 0);
 	ctx->Release();
+}
+
+
+void RenderAPI_D3D11::InitializeNRD(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+{
+
 }
 
 #endif // #if SUPPORT_D3D11

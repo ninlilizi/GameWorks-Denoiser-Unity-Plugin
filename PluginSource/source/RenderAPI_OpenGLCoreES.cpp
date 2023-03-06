@@ -54,6 +54,7 @@ public:
 
 private:
 	void CreateResources();
+	void InitializeNRD(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
 
 private:
 	UnityGfxRenderer m_APIType;
@@ -307,6 +308,12 @@ void RenderAPI_OpenGLCoreES::EndModifyVertexBuffer(void* bufferHandle)
 	glBindBuffer(GL_ARRAY_BUFFER, (GLuint)(size_t)bufferHandle);
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 #	endif
+}
+
+
+void RenderAPI_OpenGLCoreES::InitializeNRD(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+{
+
 }
 
 #endif // #if SUPPORT_OPENGL_UNIFIED

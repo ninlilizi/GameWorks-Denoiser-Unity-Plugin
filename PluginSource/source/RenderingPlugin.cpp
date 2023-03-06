@@ -286,6 +286,12 @@ static void ModifyVertexBuffer()
 }
 
 
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeNDR(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+{
+	s_CurrentAPI->InitializeNRD(renderWidth, renderHeight, &diffuseHandle, &specularHandle);
+}
+
+
 static void UNITY_INTERFACE_API OnRenderEvent(int eventID)
 {
 	// Unknown / unsupported graphics device type? Do nothing

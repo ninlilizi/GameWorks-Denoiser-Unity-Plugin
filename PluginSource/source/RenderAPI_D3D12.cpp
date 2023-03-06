@@ -16,6 +16,7 @@
 #include "Unity/IUnityGraphicsD3D12.h"
 
 #include <dxgi.h>
+#include <dxgi1_4.h>
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
 
@@ -26,9 +27,8 @@ using Microsoft::WRL::ComPtr;
 #include "../NRI/_NRI_SDK/Include/Extensions/NRIWrapperD3D12.h"
 #include "../NRI/_NRI_SDK/Include/Extensions/NRIHelper.h"
 #include "../NRD/_NRD_SDK/Include/NRD.h"
-#include "../NRD/_NRD_SDK/Integration/NRDIntegration.h"
-#include <dxgi1_4.h>
-//#include <dxgi1_5.h>
+#include "../NRD/_NRD_SDK/Integration/NRDIntegration.hpp"
+
 
 const int maxNumberOfFramesInFlight = 3;
 NrdIntegration NRD = NrdIntegration(maxNumberOfFramesInFlight);
@@ -64,6 +64,7 @@ private:
 	ID3D12Resource* GetUploadResource(UINT64 size);
 	void CreateResources();
 	void ReleaseResources();
+	void InitializeNRD(int renderWidth, int renderHeight, void* diffusePtr, void* specularHandle);
 
 private:
 	IUnityGraphicsD3D12v4* s_D3D12;
@@ -73,6 +74,10 @@ private:
 	IDXGIAdapter1* s_IDXGIAdapter;
 	UINT64 s_D3D12FenceValue = 0;
 	HANDLE s_D3D12Event = NULL;
+
+	nri::Device* s_nriDevice;
+	nri::CommandBuffer* s_nriCommandBuffer;
+	nri::TextureTransitionBarrierDesc textureDescs[2];
 };
 
 
@@ -93,6 +98,9 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, s_IDXGIAdapter(NULL)
 	, s_D3D12FenceValue(0)
 	, s_D3D12Event(NULL)
+	, s_nriDevice(NULL)
+	, s_nriCommandBuffer(NULL)
+	, textureDescs()
 {
 }
 
@@ -207,15 +215,12 @@ void RenderAPI_D3D12::CreateResources()
 
 		// Check to see if the adapter supports Direct3D 12,
 		// but don't create the actual device yet.
-		if (SUCCEEDED(
-			D3D12CreateDevice(s_IDXGIAdapter, D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+		if (SUCCEEDED(D3D12CreateDevice(s_IDXGIAdapter, D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
 		{
 			break;
 		}
 	}
-
-
-	// Wrap native device
+	if (s_IDXGIAdapter == nullptr) OutputDebugStringA("Failed to find DXGI adapter");
 
 	// Wrap the device
 	nri::DeviceCreationD3D12Desc deviceDesc = {};
@@ -224,19 +229,55 @@ void RenderAPI_D3D12::CreateResources()
 	deviceDesc.d3d12GraphicsQueue = s_D3D12->GetCommandQueue();
 	deviceDesc.enableNRIValidation = false;
 
-	nri::Device* nriDevice = nullptr;
-	nri::Result nriResult = nri::CreateDeviceFromD3D12Device(deviceDesc, nriDevice);
+	nri::Result nriResult = nri::CreateDeviceFromD3D12Device(deviceDesc, s_nriDevice);
 
 	// Get core functionality
-	nriResult = nri::GetInterface(*nriDevice,
-		NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI);
+	nriResult = nri::GetInterface(*s_nriDevice, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI);
 
-	nriResult = nri::GetInterface(*nriDevice,
-		NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI);
+	nriResult = nri::GetInterface(*s_nriDevice, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI);
 
 	// Get appropriate "wrapper" extension (XXX - can be D3D11, D3D12 or VULKAN)
-	nriResult = nri::GetInterface(*nriDevice,
-		NRI_INTERFACE(nri::WrapperD3D12Interface), (nri::WrapperD3D12Interface*)&NRI);
+	nriResult = nri::GetInterface(*s_nriDevice, NRI_INTERFACE(nri::WrapperD3D12Interface), (nri::WrapperD3D12Interface*)&NRI);
+}
+
+
+void RenderAPI_D3D12::InitializeNRD(int renderWidth, int renderHeight, void* diffuseHandle, void* specularHandle)
+{
+	// Initialize NRD
+	const nrd::MethodDesc methodDescs[] =
+	{
+		// Put neeeded methods here, like:
+		{ nrd::Method::REBLUR_DIFFUSE, renderWidth, renderHeight },
+	};
+
+	nrd::DenoiserCreationDesc denoiserCreationDesc = {};
+	denoiserCreationDesc.requestedMethods = methodDescs;
+	denoiserCreationDesc.requestedMethodsNum = 1;
+
+	bool result = NRD.Initialize(denoiserCreationDesc , *s_nriDevice, NRI, NRI);
+
+	// Wrap pointers
+
+	// Wrap the command buffer
+	nri::CommandBufferD3D12Desc commandBufferDesc = {};
+	commandBufferDesc.d3d12CommandList = (ID3D12GraphicsCommandList*)s_D3D12CmdList;
+
+	// Not needed for NRD integration layer, but needed for NRI validation layer
+	commandBufferDesc.d3d12CommandAllocator = (ID3D12CommandAllocator*)s_D3D12CmdAlloc;
+
+	nri::CommandBuffer* nriCommandBuffer = nullptr;
+	NRI.CreateCommandBufferD3D12(*s_nriDevice, commandBufferDesc, s_nriCommandBuffer);
+
+	// Wrap required textures (better do it only once on initialization)
+	nri::TextureD3D12Desc textureDescDiffuse = {};
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDescDiffuse, (nri::Texture*&)diffuseHandle);
+	textureDescs[0].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[0].nextLayout = nri::TextureLayout::GENERAL;
+
+	nri::TextureD3D12Desc textureDescSpecular = {};
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDescSpecular, (nri::Texture*&)specularHandle);
+	textureDescs[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[1].nextLayout = nri::TextureLayout::GENERAL;
 }
 
 
@@ -248,6 +289,22 @@ void RenderAPI_D3D12::ReleaseResources()
 	SAFE_RELEASE(s_D3D12CmdList);
 	SAFE_RELEASE(s_D3D12CmdAlloc);
 	SAFE_RELEASE(s_IDXGIAdapter);
+	s_nriDevice = nullptr;
+
+
+	// Better do it only once on shutdown
+	for (uint32_t i = 0; i < 1; i++)
+	{
+		NRI.DestroyTexture(*(nri::Texture*&)textureDescs[i].texture);
+	}
+
+	NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
+
+	// Release wrapped device
+	//NRI.DestroyDevice(*s_nriDevice);
+
+	// Also NRD needs to be recreated on "resize"
+	NRD.Destroy();
 }
 
 

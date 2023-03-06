@@ -9,4 +9,5 @@ EXPORTS
    SetTimeFromUnity
    SetTextureFromUnity
    SetMeshBuffersFromUnity
+   InitializeNDR
    GetRenderEventFunc
