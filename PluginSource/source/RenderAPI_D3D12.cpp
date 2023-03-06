@@ -13,8 +13,27 @@
 #include "Unity/IUnityGraphicsD3D12.h"
 
 #include <dxgi.h>
-#include <wrl/client.h>
-using Microsoft::WRL::ComPtr;
+//#include <wrl/client.h>
+//using Microsoft::WRL::ComPtr;
+
+
+// Gameworkds
+#include "../NRI/_NRI_SDK/Include/NRI.h"
+#include "../NRI/_NRI_SDK/Include/NRIDescs.h"
+#include "../NRI/_NRI_SDK/Include/Extensions/NRIWrapperD3D12.h"
+#include "../NRI/_NRI_SDK/Include/Extensions/NRIHelper.h"
+#include "../NRD/_NRD_SDK/Include/NRD.h"
+#include "../NRD/_NRD_SDK/Integration/NRDIntegration.h"
+
+const int maxNumberOfFramesInFlight = 3;
+NrdIntegration NRD = NrdIntegration(maxNumberOfFramesInFlight);
+
+struct NriInterface
+	: public nri::CoreInterface
+	, public nri::HelperInterface
+	, public nri::WrapperD3D12Interface
+{};
+NriInterface NRI;
 
 class RenderAPI_D3D12 : public RenderAPI
 {
