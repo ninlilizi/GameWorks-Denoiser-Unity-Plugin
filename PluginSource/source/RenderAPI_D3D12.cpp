@@ -325,7 +325,7 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 void RenderAPI_D3D12::ReleaseTextures()
 {
 	// Better do it only once on shutdown
-	for (uint32_t i = 0; i < 1; i++)
+	for (uint32_t i = 0; i < 5; i++)
 	{
 		if (textureDescs[i].texture != nullptr) NRI.DestroyTexture(*(nri::Texture*&)textureDescs[i].texture);
 	}
