@@ -1,5 +1,7 @@
 # Unity Native Plugin for Nvidia GameWorks Denoiser
 
+This only supports the Unity DX12 renderer. Make sure this is set first.
+
 Cmake NRI and NRD projects.
 * https://github.com/ninlilizi/GameWorks-Denoiser-Unity-Plugin/blob/main/PluginSource/NRI/README.md
 * https://github.com/ninlilizi/GameWorks-Denoiser-Unity-Plugin/blob/main/PluginSource/NRD/README.md
