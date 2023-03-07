@@ -50,18 +50,7 @@ public:
 
 	virtual bool GetUsesReverseZ() { return true; }
 
-	virtual void DrawSimpleTriangles(const float worldMatrix[16], int triangleCount, const void* verticesFloat3Byte4);
-
-	virtual void* BeginModifyTexture(void* textureHandle, int textureWidth, int textureHeight, int* outRowPitch);
-	virtual void EndModifyTexture(void* textureHandle, int textureWidth, int textureHeight, int rowPitch, void* dataPtr);
-
-	virtual void* BeginModifyVertexBuffer(void* bufferHandle, size_t* outBufferSize);
-	virtual void EndModifyVertexBuffer(void* bufferHandle);
-
 private:
-	UINT64 AlignPow2(UINT64 value);
-	UINT64 GetAlignedSize(int width, int height, int pixelSize, int rowPitch);
-	ID3D12Resource* GetUploadResource(UINT64 size);
 	void CreateResources();
 	void ReleaseResources();
 	void ReleaseTextures();
@@ -116,80 +105,6 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, s_nriCommandBuffer(NULL)
 	, textureDescs()
 {
-}
-
-UINT64 RenderAPI_D3D12::AlignPow2(UINT64 value)
-{
-	UINT64 aligned = pow(2, (int)log2(value));
-	return aligned >= value ? aligned : aligned * 2;
-}
-
-UINT64 RenderAPI_D3D12::GetAlignedSize( int width, int height, int pixelSize, int rowPitch)
-{
-	UINT64 size = width * height * pixelSize;
-
-	size = AlignPow2(size);
-
-	if (size < D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT)
-	{
-		return D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT;
-	}
-	else if (width * pixelSize < rowPitch)
-	{
-		return rowPitch * height;
-	}
-	else
-	{
-		return size;
-	}
-}
-
-ID3D12Resource* RenderAPI_D3D12::GetUploadResource(UINT64 size)
-{
-	if (s_D3D12Upload)
-	{
-		D3D12_RESOURCE_DESC desc = s_D3D12Upload->GetDesc();
-		if (desc.Width == size)
-			return s_D3D12Upload;
-		else
-			s_D3D12Upload->Release();
-	}
-
-	// Texture upload buffer
-	D3D12_HEAP_PROPERTIES heapProps = {};
-	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	heapProps.CreationNodeMask = kNodeMask;
-	heapProps.VisibleNodeMask = kNodeMask;
-
-	D3D12_RESOURCE_DESC heapDesc = {};
-	heapDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	heapDesc.Alignment = 0;
-	heapDesc.Width = size;
-	heapDesc.Height = 1;
-	heapDesc.DepthOrArraySize = 1;
-	heapDesc.MipLevels = 1;
-	heapDesc.Format = DXGI_FORMAT_UNKNOWN;
-	heapDesc.SampleDesc.Count = 1;
-	heapDesc.SampleDesc.Quality = 0;
-	heapDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	heapDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	ID3D12Device* device = s_D3D12->GetDevice();
-	HRESULT hr = device->CreateCommittedResource(
-		&heapProps,
-		D3D12_HEAP_FLAG_NONE,
-		&heapDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&s_D3D12Upload));
-	if (FAILED(hr))
-	{
-		OutputDebugStringA("Failed to CreateCommittedResource.\n");
-	}
-	
-	return s_D3D12Upload;
 }
 
 
@@ -451,90 +366,6 @@ void RenderAPI_D3D12::ProcessDeviceEvent(UnityGfxDeviceEventType type, IUnityInt
 		ReleaseResources();
 		break;
 	}
-}
-
-
-void RenderAPI_D3D12::DrawSimpleTriangles(const float worldMatrix[16], int triangleCount, const void* verticesFloat3Byte4)
-{
-	//@TODO: example not implemented yet :)
-}
-
-
-void* RenderAPI_D3D12::BeginModifyTexture(void* textureHandle, int textureWidth, int textureHeight, int* outRowPitch)
-{
-	ID3D12Fence* fence = s_D3D12->GetFrameFence();
-
-	// Wait on the previous job (example only - simplifies resource management)
-	if (fence->GetCompletedValue() < s_D3D12FenceValue)
-	{
-		fence->SetEventOnCompletion(s_D3D12FenceValue, s_D3D12Event);
-		WaitForSingleObject(s_D3D12Event, INFINITE);
-	}
-
-	// Begin a command list
-	s_D3D12CmdAlloc->Reset();
-	s_D3D12CmdList->Reset(s_D3D12CmdAlloc, nullptr);
-
-	// Fill data
-	// Clamp to minimum rowPitch of RGBA32
-	*outRowPitch = max(AlignPow2(textureWidth * 4), 256);
-	const UINT64 kDataSize = GetAlignedSize(textureWidth, textureHeight, 4, *outRowPitch);
-	ID3D12Resource* upload = GetUploadResource(kDataSize);
-	void* mapped = NULL;
-	upload->Map(0, NULL, &mapped);
-	return mapped;
-}
-
-
-void RenderAPI_D3D12::EndModifyTexture(void* textureHandle, int textureWidth, int textureHeight, int rowPitch, void* dataPtr)
-{
-	ID3D12Device* device = s_D3D12->GetDevice();
-
-	const UINT64 kDataSize = GetAlignedSize(textureWidth, textureHeight, 4, rowPitch);
-	ID3D12Resource* upload = GetUploadResource(kDataSize);
-	upload->Unmap(0, NULL);
-
-	ID3D12Resource* resource = (ID3D12Resource*)textureHandle;
-	D3D12_RESOURCE_DESC desc = resource->GetDesc();
-	assert(desc.Width == textureWidth);
-	assert(desc.Height == textureHeight);
-
-	D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-	srcLoc.pResource = upload;
-	srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-	device->GetCopyableFootprints(&desc, 0, 1, 0, &srcLoc.PlacedFootprint, nullptr, nullptr, nullptr);
-
-	D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-	dstLoc.pResource = resource;
-	dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-	dstLoc.SubresourceIndex = 0;
-
-	// We inform Unity that we expect this resource to be in D3D12_RESOURCE_STATE_COPY_DEST state,
-	// and because we do not barrier it ourselves, we tell Unity that no changes are done on our command list.
-	UnityGraphicsD3D12ResourceState resourceState = {};
-	resourceState.resource = resource;
-	resourceState.expected = D3D12_RESOURCE_STATE_COPY_DEST;
-	resourceState.current = D3D12_RESOURCE_STATE_COPY_DEST;
-
-	// Queue data upload
-	s_D3D12CmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
-
-	// Execute the command list
-	s_D3D12CmdList->Close();
-	s_D3D12FenceValue = s_D3D12->ExecuteCommandList(s_D3D12CmdList, 1, &resourceState);
-}
-
-
-void* RenderAPI_D3D12::BeginModifyVertexBuffer(void* bufferHandle, size_t* outBufferSize)
-{
-	//@TODO
-	return NULL;
-}
-
-
-void RenderAPI_D3D12::EndModifyVertexBuffer(void* bufferHandle)
-{
-	//@TODO
 }
 
 #endif // #if SUPPORT_D3D12

@@ -6,10 +6,7 @@ LIBRARY
 EXPORTS
    UnityPluginLoad
    UnityPluginUnload
-   SetTimeFromUnity
    SetFrameNumber
-   SetTextureFromUnity
-   SetMeshBuffersFromUnity
    InitializeNDR
    Denoise
    GetRenderEventFunc
