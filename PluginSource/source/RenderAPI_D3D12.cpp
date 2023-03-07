@@ -54,7 +54,7 @@ private:
 	void CreateResources();
 	void ReleaseResources();
 	void ReleaseTextures();
-	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
+	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, void* diffuse_output);
 	void InitializeNRD(int renderWidth, int renderHeight);
 	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 
@@ -192,7 +192,7 @@ void RenderAPI_D3D12::InitializeNRD(int renderWidth, int renderHeight)
 }
 
 // INPUTS - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST,
-void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, void* diffuse_output)
 {
 	if (nrdInitalized)
 	{
@@ -250,6 +250,8 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 		NRI.CreateTextureD3D12(*s_nriDevice, textureDescOUT_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[4].texture);
 		textureDescs[4].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 		textureDescs[4].nextLayout = nri::TextureLayout::GENERAL;
+
+		diffuse_output = (void*)&textureDescs[4].texture;
 	}
 }
 

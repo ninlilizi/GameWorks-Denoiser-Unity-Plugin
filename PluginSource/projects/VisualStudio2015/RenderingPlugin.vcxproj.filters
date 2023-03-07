@@ -48,6 +48,9 @@
     <ClInclude Include="..\..\NRD\Integration\NRDIntegration.hpp">
       <Filter>NRD</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\Unity\IUnityRenderingExtensions.h">
+      <Filter>Unity</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\RenderAPI.cpp" />

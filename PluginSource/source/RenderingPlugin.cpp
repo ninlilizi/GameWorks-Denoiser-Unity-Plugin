@@ -7,8 +7,15 @@
 #include <math.h>
 #include <vector>
 
+#include "Unity/IUnityRenderingExtensions.h"
+
+// Gameworks
+#include "../NRI/_NRI_SDK/Include/NRI.h"
+
 bool NDRInitiazlized = false;
 
+
+void* _DiffuseTextureOutput;
 
 static float g_FrameNum;
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetFrameNumber(float t) { g_FrameNum = t; }
@@ -93,9 +100,9 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeNDR(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
 {
-	s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
-
 	NDRInitiazlized = true;
+
+	s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST, &_DiffuseTextureOutput);
 }
 
 
@@ -115,6 +122,30 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventID)
 		return;
 
 
+}
+
+
+
+void TextureDiffuseOutputCallback(int eventID, void* data)
+{
+	if (eventID == kUnityRenderingExtEventUpdateTextureBeginV2)
+	{
+		// UpdateTextureBegin: Generate and return texture image data.
+		UnityRenderingExtTextureUpdateParamsV2* params = (UnityRenderingExtTextureUpdateParamsV2*)data;
+
+		params->texData = _DiffuseTextureOutput;
+	}
+	else if (eventID == kUnityRenderingExtEventUpdateTextureEndV2)
+	{
+		// UpdateTextureEnd: Free up the temporary memory.
+		UnityRenderingExtTextureUpdateParamsV2* params = (UnityRenderingExtTextureUpdateParamsV2*)data;
+		free(params->texData);
+	}
+}
+
+UnityRenderingEventAndData UNITY_INTERFACE_EXPORT GetDiffuseOutputTexture()
+{
+	return TextureDiffuseOutputCallback;
 }
 
 

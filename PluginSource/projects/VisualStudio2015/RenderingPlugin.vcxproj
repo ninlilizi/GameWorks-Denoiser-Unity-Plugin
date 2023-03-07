@@ -36,6 +36,7 @@
     <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D9.h" />
     <ClInclude Include="..\..\source\Unity\IUnityGraphicsMetal.h" />
     <ClInclude Include="..\..\source\Unity\IUnityInterface.h" />
+    <ClInclude Include="..\..\source\Unity\IUnityRenderingExtensions.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\gl3w\gl3w.c" />

@@ -23,7 +23,7 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
-	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
+	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, void* diffuse_output);
 	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 
 private:
@@ -73,7 +73,7 @@ void RenderAPI_D3D11::ReleaseResources()
 }
 
 
-void RenderAPI_D3D11::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+void RenderAPI_D3D11::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, void* diffuse_output)
 {
 }
 

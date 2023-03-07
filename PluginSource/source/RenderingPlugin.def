@@ -10,3 +10,4 @@ EXPORTS
    InitializeNDR
    Denoise
    GetRenderEventFunc
+   GetDiffuseOutputTexture
