@@ -54,7 +54,7 @@ public:
 
 private:
 	void CreateResources();
-	void Initialize(int renderWidth, int renderHeight, void* diffuseInHandle, void* specularInHandle, void* diffuseOutHandle, void* specularOutHandle);
+	void Initialize(int renderWidth, int renderHeight, ID3D12Resource* IN_MV, ID3D12Resource* IN_NORMAL_ROUGHNESS, ID3D12Resource* IN_VIEWZ, ID3D12Resource* IN_DIFF_RADIANCE_HITDIST, ID3D12Resource* OUT_DIFF_RADIANCE_HITDIST);
 	void Denoise(int frameIndex);
 
 private:
@@ -312,7 +312,7 @@ void RenderAPI_OpenGLCoreES::EndModifyVertexBuffer(void* bufferHandle)
 }
 
 
-void RenderAPI_OpenGLCoreES::Initialize(int renderWidth, int renderHeight, void* diffuseInHandle, void* specularInHandle, void* diffuseOutHandle, void* specularOutHandle)
+void RenderAPI_OpenGLCoreES::Initialize(int renderWidth, int renderHeight, ID3D12Resource* IN_MV, ID3D12Resource* IN_NORMAL_ROUGHNESS, ID3D12Resource* IN_VIEWZ, ID3D12Resource* IN_DIFF_RADIANCE_HITDIST, ID3D12Resource* OUT_DIFF_RADIANCE_HITDIST)
 {
 }
 

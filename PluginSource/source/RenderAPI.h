@@ -3,6 +3,7 @@
 #include "Unity/IUnityGraphics.h"
 
 #include <stddef.h>
+#include <d3d12.h>
 
 struct IUnityInterfaces;
 
@@ -49,7 +50,7 @@ public:
 	virtual void EndModifyVertexBuffer(void* bufferHandle) = 0;
 
 	// Initialize NDR
-	virtual void Initialize(int renderWidth, int renderHeight, void* diffuseInHandle, void* specularInHandle, void* diffuseOutHandle, void* specularOutHandle) = 0;
+	virtual void Initialize(int renderWidth, int renderHeight, ID3D12Resource* IN_MV, ID3D12Resource* IN_NORMAL_ROUGHNESS, ID3D12Resource* IN_VIEWZ, ID3D12Resource* IN_DIFF_RADIANCE_HITDIST, ID3D12Resource* OUT_DIFF_RADIANCE_HITDIST) = 0;
 	virtual void Denoise(int frameIndex) = 0;
 };
 

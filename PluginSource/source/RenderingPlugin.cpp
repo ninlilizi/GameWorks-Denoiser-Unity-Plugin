@@ -286,9 +286,9 @@ static void ModifyVertexBuffer()
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeNDR(int renderWidth, int renderHeight, void* diffuseInHandle, void* specularInHandle, void* diffuseOutHandle, void* specularOutHandle)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeNDR(int renderWidth, int renderHeight, ID3D12Resource* IN_MV, ID3D12Resource* IN_NORMAL_ROUGHNESS, ID3D12Resource* IN_VIEWZ, ID3D12Resource* IN_DIFF_RADIANCE_HITDIST, ID3D12Resource* OUT_DIFF_RADIANCE_HITDIST)
 {
-	s_CurrentAPI->Initialize(renderWidth, renderHeight, &diffuseInHandle, &specularInHandle, &diffuseOutHandle, &specularOutHandle);
+	s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
 }
 
 
