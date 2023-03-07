@@ -51,13 +51,6 @@ private:
 
 private:
 	UnityGfxRenderer m_APIType;
-	GLuint m_VertexShader;
-	GLuint m_FragmentShader;
-	GLuint m_Program;
-	GLuint m_VertexArray;
-	GLuint m_VertexBuffer;
-	int m_UniformWorldMatrix;
-	int m_UniformProjMatrix;
 };
 
 
@@ -68,22 +61,6 @@ RenderAPI* CreateRenderAPI_OpenGLCoreES(UnityGfxRenderer apiType)
 
 void RenderAPI_OpenGLCoreES::CreateResources()
 {
-	// Make sure that there are no GL error flags set before creating resources
-	while (glGetError() != GL_NO_ERROR) {}
-
-	GLint status = 0;
-	glGetProgramiv(m_Program, GL_LINK_STATUS, &status);
-	assert(status == GL_TRUE);
-
-	m_UniformWorldMatrix = glGetUniformLocation(m_Program, "worldMatrix");
-	m_UniformProjMatrix = glGetUniformLocation(m_Program, "projMatrix");
-
-	// Create vertex buffer
-	glGenBuffers(1, &m_VertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, m_VertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, 1024, NULL, GL_STREAM_DRAW);
-
-	assert(glGetError() == GL_NO_ERROR);
 }
 
 
