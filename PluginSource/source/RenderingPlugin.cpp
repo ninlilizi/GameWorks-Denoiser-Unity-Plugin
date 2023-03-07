@@ -7,6 +7,8 @@
 #include <math.h>
 #include <vector>
 
+bool NDRInitiazlized = false;
+
 
 // --------------------------------------------------------------------------
 // SetTimeFromUnity, an example function we export which is called by one of the scripts.
@@ -15,6 +17,8 @@ static float g_Time;
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetTimeFromUnity (float t) { g_Time = t; }
 
+static float g_FrameNum;
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetFrameNumber(float t) { g_FrameNum = t; }
 
 
 // --------------------------------------------------------------------------
@@ -286,15 +290,21 @@ static void ModifyVertexBuffer()
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeNDR(int renderWidth, int renderHeight, ID3D12Resource* IN_MV, ID3D12Resource* IN_NORMAL_ROUGHNESS, ID3D12Resource* IN_VIEWZ, ID3D12Resource* IN_DIFF_RADIANCE_HITDIST, ID3D12Resource* OUT_DIFF_RADIANCE_HITDIST)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeNDR(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
 {
 	s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
+	SetTextureFromUnity(IN_NORMAL_ROUGHNESS, 1920, 1080);
+
+	NDRInitiazlized = true;
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Denoise(int frameIndex)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
 {
-	s_CurrentAPI->Denoise(frameIndex);
+	if (NDRInitiazlized)
+	{
+		s_CurrentAPI->Denoise(frameIndex, _viewToClipMatrix, _worldToViewMatrix);
+	}
 }
 
 

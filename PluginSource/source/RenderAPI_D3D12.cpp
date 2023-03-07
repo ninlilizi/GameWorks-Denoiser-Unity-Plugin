@@ -65,9 +65,9 @@ private:
 	void CreateResources();
 	void ReleaseResources();
 	void ReleaseTextures();
-	void Initialize(int renderWidth, int renderHeight, ID3D12Resource* IN_MV, ID3D12Resource* IN_NORMAL_ROUGHNESS, ID3D12Resource* IN_VIEWZ, ID3D12Resource* IN_DIFF_RADIANCE_HITDIST, ID3D12Resource* OUT_DIFF_RADIANCE_HITDIST);
+	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
 	void InitializeNRD(int renderWidth, int renderHeight);
-	void Denoise(int frameIndex);
+	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 
 private:
 	IUnityGraphicsD3D12v4* s_D3D12;
@@ -80,9 +80,18 @@ private:
 
 	nri::Device* s_nriDevice;
 	nri::CommandBuffer* s_nriCommandBuffer;
-	nri::TextureTransitionBarrierDesc textureDescs[4];
+	nri::TextureTransitionBarrierDesc textureDescs[5];
 
 	bool nrdInitalized = false;
+
+	float m_viewToClipMatrixPrev[16];
+	float m_worldToViewMatrixPrev[16];
+
+	void* tex_IN_MV;
+	void* tex_IN_NORMAL_ROUGHNESS;
+	void* tex_IN_VIEWZ;
+	void* tex_IN_DIFF_RADIANCE_HITDIST;
+	void* tex_OUT_DIFF_RADIANCE_HITDIST;
 };
 
 
@@ -268,7 +277,7 @@ void RenderAPI_D3D12::InitializeNRD(int renderWidth, int renderHeight)
 }
 
 // INPUTS - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST,
-void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, ID3D12Resource* IN_MV, ID3D12Resource* IN_NORMAL_ROUGHNESS, ID3D12Resource* IN_VIEWZ, ID3D12Resource* IN_DIFF_RADIANCE_HITDIST, ID3D12Resource* OUT_DIFF_RADIANCE_HITDIST)
+void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
 {
 	if (nrdInitalized)
 	{
@@ -276,6 +285,12 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, ID3D12Resour
 		ReleaseTextures();
 		NRD.Destroy();
 		InitializeNRD(renderWidth, renderHeight);
+
+		tex_IN_MV = &IN_MV;
+		tex_IN_NORMAL_ROUGHNESS = &IN_NORMAL_ROUGHNESS;
+		tex_IN_VIEWZ = &IN_VIEWZ;
+		tex_IN_DIFF_RADIANCE_HITDIST = &IN_DIFF_RADIANCE_HITDIST;
+		tex_OUT_DIFF_RADIANCE_HITDIST = &OUT_DIFF_RADIANCE_HITDIST;
 
 
 		// Wrap pointers
@@ -292,82 +307,98 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, ID3D12Resour
 
 		// Wrap required textures (better do it only once on initialization)
 		nri::TextureD3D12Desc textureDescIN_MV = {};
-		textureDescIN_MV.d3d12Resource = IN_MV;
+		textureDescIN_MV.d3d12Resource = (ID3D12Resource*&)IN_MV;
 		NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_MV, (nri::Texture*&)textureDescs[0].texture);
 		textureDescs[0].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 		textureDescs[0].nextLayout = nri::TextureLayout::GENERAL;
 
 		nri::TextureD3D12Desc textureDescIN_NORMAL_ROUGHNESS = {};
-		textureDescIN_NORMAL_ROUGHNESS.d3d12Resource = IN_NORMAL_ROUGHNESS;
+		textureDescIN_NORMAL_ROUGHNESS.d3d12Resource = (ID3D12Resource*&)IN_NORMAL_ROUGHNESS;
 		NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_NORMAL_ROUGHNESS, (nri::Texture*&)textureDescs[1].texture);
 		textureDescs[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 		textureDescs[1].nextLayout = nri::TextureLayout::GENERAL;
 
 		nri::TextureD3D12Desc textureDescIN_VIEWZ = {};
-		textureDescIN_VIEWZ.d3d12Resource = IN_VIEWZ;
+		textureDescIN_VIEWZ.d3d12Resource = (ID3D12Resource*&)IN_VIEWZ;
 		NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_VIEWZ, (nri::Texture*&)textureDescs[2].texture);
 		textureDescs[2].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 		textureDescs[2].nextLayout = nri::TextureLayout::GENERAL;
 
 		nri::TextureD3D12Desc textureDescIN_DIFF_RADIANCE_HITDIST = {};
-		textureDescIN_DIFF_RADIANCE_HITDIST.d3d12Resource = IN_DIFF_RADIANCE_HITDIST;
+		textureDescIN_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*&)IN_DIFF_RADIANCE_HITDIST;
 		NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[3].texture);
 		textureDescs[3].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 		textureDescs[3].nextLayout = nri::TextureLayout::GENERAL;
 
 		nri::TextureD3D12Desc textureDescOUT_DIFF_RADIANCE_HITDIST = {};
-		textureDescOUT_DIFF_RADIANCE_HITDIST.d3d12Resource = OUT_DIFF_RADIANCE_HITDIST;
-		NRI.CreateTextureD3D12(*s_nriDevice, textureDescOUT_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[3].texture);
-		textureDescs[3].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
-		textureDescs[3].nextLayout = nri::TextureLayout::GENERAL;
+		textureDescOUT_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*&)OUT_DIFF_RADIANCE_HITDIST;
+		NRI.CreateTextureD3D12(*s_nriDevice, textureDescOUT_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[4].texture);
+		textureDescs[4].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+		textureDescs[4].nextLayout = nri::TextureLayout::GENERAL;
 	}
 }
 
 
-void RenderAPI_D3D12::Denoise(int frameIndex)
+void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
 {
 	// Populate common settings
 	//  - for the first time use defaults
 	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
 	nrd::CommonSettings commonSettings = {};
-	commonSettings.accumulationMode = nrd::AccumulationMode::CONTINUE;
-	//PopulateCommonSettings(commonSettings);
+	commonSettings.frameIndex = frameIndex;
+	commonSettings.isBaseColorMetalnessAvailable = false;
+
+	// Set matrices
+	for (int i = 0; i < 16; ++i)
+	{
+		commonSettings.viewToClipMatrixPrev[i] = m_viewToClipMatrixPrev[i];
+		commonSettings.viewToClipMatrix[i] = _viewToClipMatrix[i];
+		m_viewToClipMatrixPrev[i] = _viewToClipMatrix[i];
+
+		commonSettings.worldToViewMatrixPrev[i] = m_worldToViewMatrixPrev[i];
+		commonSettings.worldToViewMatrix[i] = _worldToViewMatrix[i];
+		m_worldToViewMatrixPrev[i] = _worldToViewMatrix[i];
+	}
+
 
 	// Set settings for each method in the NRD instance
 	nrd::ReblurSettings settings = {};
-	settings.enableAntiFirefly = true;
-	//PopulateXxxSettings(settings);
+	settings.enableAntiFirefly = false;
+
 
 	NRD.SetMethodSettings(nrd::Method::REBLUR_DIFFUSE, &settings);
 
-	NrdIntegrationTexture integrationTexture_DiffuseIn;
-	integrationTexture_DiffuseIn.format = nri::Format::RGBA32_SFLOAT;
-	integrationTexture_DiffuseIn.subresourceStates = &textureDescs[0];
 
-	NrdIntegrationTexture integrationTexture_SpecularIn;
-	integrationTexture_SpecularIn.format = nri::Format::RGBA32_SFLOAT;
-	integrationTexture_SpecularIn.subresourceStates = &textureDescs[1];
+	NrdIntegrationTexture integrationTexture_IN_MV;
+	integrationTexture_IN_MV.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_MV.subresourceStates = &textureDescs[0];
 
-	NrdIntegrationTexture integrationTexture_DiffuseOut;
-	integrationTexture_DiffuseOut.format = nri::Format::RGBA32_SFLOAT;
-	integrationTexture_DiffuseOut.subresourceStates = &textureDescs[2];
+	NrdIntegrationTexture integrationTexture_IN_NORMAL_ROUGHNESS;
+	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescs[1];
 
-	NrdIntegrationTexture integrationTexture_SpecularOut;
-	integrationTexture_SpecularOut.format = nri::Format::RGBA32_SFLOAT;
-	integrationTexture_SpecularOut.subresourceStates = &textureDescs[3];
+	NrdIntegrationTexture integrationTexture_IN_VIEWZ;
+	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_VIEWZ.subresourceStates = &textureDescs[2];
+
+	NrdIntegrationTexture integrationTexture_IN_DIFF_RADIANCE_HITDIST;
+	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[3];
+
+	NrdIntegrationTexture integrationTexture_OUT_DIFF_RADIANCE_HITDIST;
+	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
 
 	// Fill up the user pool
 	NrdUserPool userPool = {};
 	{
 		// Fill only required "in-use" inputs and outputs in appropriate slots using entryDescs & entryFormat,
 		// applying remapping if necessary. Unused slots will be {nullptr, nri::Format::UNKNOWN}
-
-		// INPUTS - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST,
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_MV, integrationTexture_DiffuseIn);
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_DiffuseIn);
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_VIEWZ, integrationTexture_SpecularIn);
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST, integrationTexture_DiffuseIn);
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST, integrationTexture_SpecularOut);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_MV, integrationTexture_IN_MV);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_IN_NORMAL_ROUGHNESS);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_VIEWZ, integrationTexture_IN_VIEWZ);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST, integrationTexture_IN_DIFF_RADIANCE_HITDIST);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST, integrationTexture_OUT_DIFF_RADIANCE_HITDIST);
 	};
 
 	// Better use "true" if resources are not changing between frames (i.e. are not suballocated from a heap)
