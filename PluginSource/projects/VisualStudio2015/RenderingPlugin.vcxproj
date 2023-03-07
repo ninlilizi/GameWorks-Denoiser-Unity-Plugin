@@ -1,0 +1,303 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\NRD\Integration\NRDIntegration.hpp" />
+    <ClInclude Include="..\..\NRD\_NRD_SDK\Include\NRD.h" />
+    <ClInclude Include="..\..\NRD\_NRD_SDK\Integration\NRDIntegration.h" />
+    <ClInclude Include="..\..\NRI\_NRI_SDK\Include\Extensions\NRIHelper.h" />
+    <ClInclude Include="..\..\NRI\_NRI_SDK\Include\Extensions\NRIWrapperD3D12.h" />
+    <ClInclude Include="..\..\NRI\_NRI_SDK\Include\NRI.h" />
+    <ClInclude Include="..\..\NRI\_NRI_SDK\Include\NRIDescs.h" />
+    <ClInclude Include="..\..\source\gl3w\gl3w.h" />
+    <ClInclude Include="..\..\source\gl3w\glcorearb.h" />
+    <ClInclude Include="..\..\source\PlatformBase.h" />
+    <ClInclude Include="..\..\source\RenderAPI.h" />
+    <ClInclude Include="..\..\source\Unity\IUnityGraphics.h" />
+    <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D11.h" />
+    <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D12.h" />
+    <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D9.h" />
+    <ClInclude Include="..\..\source\Unity\IUnityGraphicsMetal.h" />
+    <ClInclude Include="..\..\source\Unity\IUnityInterface.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\source\gl3w\gl3w.c" />
+    <ClCompile Include="..\..\source\RenderAPI.cpp" />
+    <ClCompile Include="..\..\source\RenderAPI_D3D11.cpp" />
+    <ClCompile Include="..\..\source\RenderAPI_D3D12.cpp" />
+    <ClCompile Include="..\..\source\RenderAPI_OpenGLCoreES.cpp" />
+    <ClCompile Include="..\..\source\RenderAPI_Vulkan.cpp">
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\..\source\RenderingPlugin.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\source\RenderingPlugin.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\source\RenderAPI_Metal.mm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\NRD\NRD.vcxproj">
+      <Project>{aab45633-30e6-3971-a5d0-161429eda294}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NRD\NRD_Shaders.vcxproj">
+      <Project>{69a39825-738a-335f-a5e7-49bff83a03d8}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NRI\NRI.vcxproj">
+      <Project>{e701a28a-1a06-3c03-a3a2-6fec7eccfe1f}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NRI\NRI_D3D11.vcxproj">
+      <Project>{e011ba0d-9ae4-367a-92fb-447ea5e9766b}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NRI\NRI_D3D12.vcxproj">
+      <Project>{1080a503-9ee3-309a-a59d-665b28473517}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NRI\NRI_Shared.vcxproj">
+      <Project>{a5de5429-aca8-3196-9699-b66ba89fbaea}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NRI\NRI_Validation.vcxproj">
+      <Project>{07a95e34-abbb-3d21-b79c-d0a6cc9e285f}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{F7CFEF5A-54BD-42E8-A59E-54ABAEB4EA9C}</ProjectGuid>
+    <RootNamespace>RenderingPlugin</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>RTDenoising</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>12.0.30501.0</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)..\..\build\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>GLEW_STATIC;WIN32;_DEBUG;_WINDOWS;_USRDLL;RENDERINGPLUGIN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <AdditionalIncludeDirectories>../../</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <ModuleDefinitionFile>../../source/RenderingPlugin.def</ModuleDefinitionFile>
+    </Link>
+    <PostBuildEvent>
+      <Command>SETLOCAL
+
+if "$(PlatformShortName)" == "x86" (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86
+) else (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86_64
+)
+echo Target Plugin Path is %TARGET_PLUGIN_PATH%
+copy /Y "$(TargetPath)" "%TARGET_PLUGIN_PATH%\$(TargetFileName)"
+
+ENDLOCAL
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>GLEW_STATIC;WIN32;_DEBUG;_WINDOWS;_USRDLL;RENDERINGPLUGIN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>../../</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>NRD.lib;NRI_Shared.lib;NRI_D3D11.lib;NRI_D3D12.lib;NRI_Validation.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <ModuleDefinitionFile>../../source/RenderingPlugin.def</ModuleDefinitionFile>
+      <IgnoreAllDefaultLibraries>
+      </IgnoreAllDefaultLibraries>
+      <AdditionalLibraryDirectories>D:\NKLI\Git-Masters\GameWorks-Denoiser-Unity-Plugin\PluginSource\NRI\_Build\Release;D:\NKLI\Git-Masters\GameWorks-Denoiser-Unity-Plugin\PluginSource\NRI\Release;D:\NKLI\Git-Masters\GameWorks-Denoiser-Unity-Plugin\PluginSource\NRD\_Build\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>SETLOCAL
+
+if "$(PlatformShortName)" == "x86" (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86
+) else (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86_64
+)
+echo Target Plugin Path is %TARGET_PLUGIN_PATH%
+copy /Y "$(TargetPath)" "%TARGET_PLUGIN_PATH%\$(TargetFileName)"
+
+ENDLOCAL
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>GLEW_STATIC;WIN32;NDEBUG;_WINDOWS;_USRDLL;RENDERINGPLUGIN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>../../</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+      <ModuleDefinitionFile>../../source/RenderingPlugin.def</ModuleDefinitionFile>
+    </Link>
+    <PostBuildEvent>
+      <Command>SETLOCAL
+
+if "$(PlatformShortName)" == "x86" (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86
+) else (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86_64
+)
+echo Target Plugin Path is %TARGET_PLUGIN_PATH%
+copy /Y "$(TargetPath)" "%TARGET_PLUGIN_PATH%\$(TargetFileName)"
+
+ENDLOCAL
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>GLEW_STATIC;WIN32;NDEBUG;_WINDOWS;_USRDLL;RENDERINGPLUGIN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>../../</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>NRD.lib;NRI_Shared.lib;NRI_D3D11.lib;NRI_D3D12.lib;NRI_Validation.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <ModuleDefinitionFile>../../source/RenderingPlugin.def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>D:\NKLI\Git-Masters\GameWorks-Denoiser-Unity-Plugin\PluginSource\NRI\_Build\Release;D:\NKLI\Git-Masters\GameWorks-Denoiser-Unity-Plugin\PluginSource\NRI\Release;D:\NKLI\Git-Masters\GameWorks-Denoiser-Unity-Plugin\PluginSource\NRD\_Build\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreAllDefaultLibraries>
+      </IgnoreAllDefaultLibraries>
+    </Link>
+    <PostBuildEvent>
+      <Command>SETLOCAL
+
+if "$(PlatformShortName)" == "x86" (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86
+) else (
+  set TARGET_PLUGIN_PATH=$(SolutionDir)..\..\..\UnityProject\Assets\Plugins\x86_64
+)
+echo Target Plugin Path is %TARGET_PLUGIN_PATH%
+copy /Y "$(TargetPath)" "%TARGET_PLUGIN_PATH%\$(TargetFileName)"
+
+ENDLOCAL
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
