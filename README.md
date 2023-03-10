@@ -37,7 +37,7 @@ Rough Usage: (Do this at the end of a frame)
 
 Initialize
 ```
-UpdateResources(RT_DiffuseOutput.width, RT_DiffuseOutput.height, MotionVectorsRT.GetNativeTexturePtr(), NormalRoughnessRT.GetNativeTexturePtr(), LinearDepthRT.GetNativeTexturePtr(), DiffuseRadianceHitDistInRT.GetNativeTexturePtr(), DiffuseRadianceHitDistOutRT.GetNativeTexturePtr());
+UpdateResources(RTWidth, RTHeight, MotionVectorsRT.GetNativeTexturePtr(), NormalRoughnessRT.GetNativeTexturePtr(), LinearDepthRT.GetNativeTexturePtr(), DiffuseRadianceHitDistInRT.GetNativeTexturePtr(), DiffuseRadianceHitDistOutRT.GetNativeTexturePtr());
 GL.IssuePluginEvent(Initialize(), 0);
 ```
 
