@@ -37,7 +37,6 @@ Rough Usage: (Do this at the end of a frame)
 
 Initialize
 ```
-// Initialize
 UpdateResources(RT_DiffuseOutput.width, RT_DiffuseOutput.height, RT_NDR_IN_MV.GetNativeTexturePtr(), RT_NDR_IN_NORMAL_ROUGHNESS.GetNativeTexturePtr(), RT_NDR_IN_VIEWZ.GetNativeTexturePtr(), RT_NDR_IN_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr(), RT_NDR_OUT_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr());
 GL.IssuePluginEvent(Initialize(), 0);
 ```
