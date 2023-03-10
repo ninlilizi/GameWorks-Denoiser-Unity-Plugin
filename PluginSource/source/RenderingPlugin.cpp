@@ -13,8 +13,16 @@
 #include "../NRI/_NRI_SDK/Include/NRI.h"
 
 bool NDRInitiazlized = false;
+bool NDRResourcesSet = false;
 
 int _frameIndex;
+int _renderWidth;
+int _renderHeight;
+void* _IN_MV;
+void* _IN_NORMAL_ROUGHNESS;
+void* _IN_VIEWZ;
+void* _IN_DIFF_RADIANCE_HITDIST;
+void* _OUT_DIFF_RADIANCE_HITDIST;
 float _viewToClipMatrix[16];
 float _worldToViewMatrix[16];
 
@@ -96,18 +104,46 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 }
 
 
-static void UNITY_INTERFACE_API OnInitializeEvent(int renderWidth, int renderHeight, void** IN_MV, void** IN_NORMAL_ROUGHNESS, void** IN_VIEWZ, void** IN_DIFF_RADIANCE_HITDIST, void** OUT_DIFF_RADIANCE_HITDIST)
+// Events
+static void UNITY_INTERFACE_API OnInitializeEvent(int eventID)
 {
-	if (!NDRInitiazlized)
+	if (!NDRInitiazlized && NDRResourcesSet)
 	{
-		NDRInitiazlized = true;
+		s_CurrentAPI->Initialize(_renderWidth, _renderHeight, _IN_MV, _IN_NORMAL_ROUGHNESS, _IN_VIEWZ, _IN_DIFF_RADIANCE_HITDIST, _OUT_DIFF_RADIANCE_HITDIST);
 
-		s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
+		NDRInitiazlized = true;
 	}
 }
 
 
-static void UNITY_INTERFACE_API OnUpdateParamsEvent(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
+static void UNITY_INTERFACE_API OnDenoiseEvent(int eventID)
+{
+	// Unknown / unsupported graphics device type? Do nothing
+	if (s_CurrentAPI == NULL)
+		return;
+
+	if (NDRInitiazlized && NDRResourcesSet)
+	{
+		s_CurrentAPI->Denoise(_frameIndex, _viewToClipMatrix, _worldToViewMatrix);
+	}
+}
+
+
+// Update functions
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UpdateResources(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+{
+	_renderWidth = renderWidth;
+	_renderHeight = renderHeight;
+	_IN_MV = IN_MV;
+	_IN_NORMAL_ROUGHNESS = IN_NORMAL_ROUGHNESS;
+	_IN_VIEWZ = IN_VIEWZ;
+	_IN_DIFF_RADIANCE_HITDIST = IN_DIFF_RADIANCE_HITDIST;
+	_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
+
+	NDRResourcesSet = true;
+}
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UpdateParams(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
 {
 	_frameIndex = frameIndex;
 
@@ -120,36 +156,14 @@ static void UNITY_INTERFACE_API OnUpdateParamsEvent(int frameIndex, float viewTo
 }
 
 
-static void UNITY_INTERFACE_API OnDenoiseEvent(int eventID)
-{
-	// Unknown / unsupported graphics device type? Do nothing
-	if (s_CurrentAPI == NULL)
-		return;
-
-	if (NDRInitiazlized)
-	{
-		s_CurrentAPI->Denoise(_frameIndex, _viewToClipMatrix, _worldToViewMatrix);
-	}
-}
-
-
-// --------------------------------------------------------------------------
 // External callback functions
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize()
+{
+	return OnInitializeEvent;
+}
 
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Denoise()
 {
 	return OnDenoiseEvent;
-}
-
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UpdateParams(int frameIndex, float* viewToClipMatrix[16], float* worldToViewMatrix[16])
-{
-	OnUpdateParamsEvent(frameIndex, viewToClipMatrix[16], worldToViewMatrix[16]);
-	return 0;
-}
-
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize(int renderWidth, int renderHeight, void** IN_MV, void** IN_NORMAL_ROUGHNESS, void** IN_VIEWZ, void** IN_DIFF_RADIANCE_HITDIST, void** OUT_DIFF_RADIANCE_HITDIST)
-{
-	OnInitializeEvent(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
-	return 0;
 }
 

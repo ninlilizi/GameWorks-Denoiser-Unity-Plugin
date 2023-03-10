@@ -6,6 +6,7 @@ LIBRARY
 EXPORTS
    UnityPluginLoad
    UnityPluginUnload
-   Initialize
+   UpdateResources
    UpdateParams
+   Initialize
    Denoise

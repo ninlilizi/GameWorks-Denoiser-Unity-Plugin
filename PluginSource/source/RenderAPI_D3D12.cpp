@@ -88,12 +88,6 @@ private:
 	float m_viewToClipMatrixPrev[16];
 	float m_worldToViewMatrixPrev[16];
 
-	void* tex_IN_MV;
-	void* tex_IN_NORMAL_ROUGHNESS;
-	void* tex_IN_VIEWZ;
-	void* tex_IN_DIFF_RADIANCE_HITDIST;
-	void* tex_OUT_DIFF_RADIANCE_HITDIST;
-
 	int _renderWidth;
 	int _renderHeight;
 };
@@ -210,13 +204,6 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 
 	///
 
-
-	tex_IN_MV = &IN_MV;
-	tex_IN_NORMAL_ROUGHNESS = &IN_NORMAL_ROUGHNESS;
-	tex_IN_VIEWZ = &IN_VIEWZ;
-	tex_IN_DIFF_RADIANCE_HITDIST = &IN_DIFF_RADIANCE_HITDIST;
-	tex_OUT_DIFF_RADIANCE_HITDIST = &OUT_DIFF_RADIANCE_HITDIST;
-
 	_renderWidth = renderWidth;
 	_renderHeight = renderHeight;
 
@@ -232,14 +219,14 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 
 	//nri::CommandBuffer* nriCommandBuffer = nullptr;
 	NRI.CreateCommandBufferD3D12(*s_nriDevice, commandBufferDesc, s_nriCommandBuffer);
-
+	
 	// Wrap required textures (better do it only once on initialization)
 	nri::TextureD3D12Desc textureDescIN_MV = {};
 	textureDescIN_MV.d3d12Resource = (ID3D12Resource*)IN_MV;
 	NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_MV, (nri::Texture*&)textureDescs[0].texture);
 	textureDescs[0].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[0].nextLayout = nri::TextureLayout::GENERAL;
-
+	
 	nri::TextureD3D12Desc textureDescIN_NORMAL_ROUGHNESS = {};
 	textureDescIN_NORMAL_ROUGHNESS.d3d12Resource = (ID3D12Resource*)IN_NORMAL_ROUGHNESS;
 	NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_NORMAL_ROUGHNESS, (nri::Texture*&)textureDescs[1].texture);
@@ -280,7 +267,7 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
 	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
 
-
+	
 	nrdInitalized = true;
 }
 
@@ -289,121 +276,6 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 
 void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
 {
-	//s_D3D12CmdList->CopyResource((ID3D12Resource*)OUT_DIFF_RADIANCE_HITDIST, (ID3D12Resource*)IN_NORMAL_ROUGHNESS);
-//s_D3D12CmdList->Close();
-
-//s_D3D12->ExecuteCommandList(s_D3D12CmdList, 0, NULL);
-
-//s_D3D12CmdAlloc->Reset();
-//s_D3D12CmdList->Reset(s_D3D12CmdAlloc, nullptr);
-	
-
-	auto device = s_D3D12->GetDevice();
-	HRESULT hr = E_FAIL;
-	int size = _renderWidth * _renderHeight * 4;
-
-	// The output buffer (created below) is on a default heap, so only the GPU can access it.
-
-	D3D12_HEAP_PROPERTIES defaultHeapProperties{ CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT) };
-	D3D12_RESOURCE_DESC outputBufferDesc{ CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) };
-	ComPtr<::ID3D12Resource> outputBuffer;
-	hr = device->CreateCommittedResource(
-		&defaultHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&outputBufferDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		__uuidof(outputBuffer),
-		(void**)outputBuffer.Get());
-
-	//
-	ComPtr<ID3D12GraphicsCommandList> testCmdList;
-	hr = device->CreateCommandList(kNodeMask, D3D12_COMMAND_LIST_TYPE_DIRECT, s_D3D12CmdAlloc, nullptr, IID_PPV_ARGS(&testCmdList));
-	if (FAILED(hr)) OutputDebugStringA("Failed to CreateCommandList.\n");
-
-	Direct3DQueueManager* queueManager = new Direct3DQueueManager(s_D3D12->GetDevice());
-	Direct3DQueue* queue = queueManager->GetQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
-
-	//ID3D12CommandQueue* cmdqueue = queue->GetCommandQueue();
-	//ID3D12Fence* fence = queue->GetFence();
-
-
-	// The readback buffer (created below) is on a readback heap, so that the CPU can access it.
-
-	D3D12_HEAP_PROPERTIES readbackHeapProperties{ CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK) };
-	D3D12_RESOURCE_DESC readbackBufferDesc{ CD3DX12_RESOURCE_DESC::Buffer(size) };
-	ComPtr<ID3D12Resource> readbackBuffer;
-	hr = device->CreateCommittedResource(
-		&readbackHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&readbackBufferDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		__uuidof(readbackBuffer),
-		(void**)readbackBuffer.Get());
-	//if (FAILED(hr)) OutputDebugStringA("Failed to create readbackBuffer.\n");
-	if (FAILED(hr)) assert(false, "Failed creating readbackBuffer");
-
-	{
-		D3D12_RESOURCE_BARRIER outputBufferResourceBarrier
-		{
-			CD3DX12_RESOURCE_BARRIER::Transition(
-				(ID3D12Resource*)tex_IN_NORMAL_ROUGHNESS,
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_COPY_SOURCE)
-		};
-		testCmdList.Get()->ResourceBarrier(1, &outputBufferResourceBarrier);
-	}
-
-
-	testCmdList.Get()->CopyResource((ID3D12Resource*)tex_OUT_DIFF_RADIANCE_HITDIST, (ID3D12Resource*)tex_IN_NORMAL_ROUGHNESS);
-
-
-	// Code goes here to close, execute (and optionally reset) the command list, and also
-	// to use a fence to wait for the command queue.
-
-
-	testCmdList->Close();
-	queue->ExecuteCommandList(testCmdList.Get());
-	queue->WaitForFenceCPUBlocking(queue->ExecuteCommandList(testCmdList.Get()));
-
-	//assert(queue->IsFenceComplete(fence) == true);
-
-	delete queue;
-	//delete queueManager;
-	testCmdList.Get()->Release();
-
-	// The code below assumes that the GPU wrote FLOATs to the buffer.
-
-	D3D12_RANGE readbackBufferRange{0, size};
-	//FLOAT* pReadbackBufferData{};
-	void* pMappedMemory = nullptr;
-	hr = readbackBuffer.Get()->Map
-	(
-		0,
-		&readbackBufferRange,
-		&pMappedMemory
-	);
-	if (FAILED(hr)) OutputDebugStringA("Failed to map resource.\n");
-
-	// Code goes here to access the data via pReadbackBufferData.
-
-
-
-	// Here ^
-
-	D3D12_RANGE emptyRange{0, 0};
-	readbackBuffer->Unmap
-	(
-		0,
-		&emptyRange
-	);
-
-	//diffuse_output = (void**)readbackBuffer.Get();
-
-
-
-
 	if (nrdInitalized)
 	{
 		// Populate common settings
