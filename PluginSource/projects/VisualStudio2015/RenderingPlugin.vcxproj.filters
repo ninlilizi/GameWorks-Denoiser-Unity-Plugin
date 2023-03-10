@@ -84,6 +84,7 @@
     <ClInclude Include="..\..\source\DX12\d3dcommon.h">
       <Filter>DX12</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\D3DCommandQueue.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\RenderAPI.cpp" />
@@ -95,7 +96,7 @@
     <ClCompile Include="..\..\source\gl3w\gl3w.c">
       <Filter>gl3w</Filter>
     </ClCompile>
-    <ClCompile Include="D3DCommandQueue.cpp" />
+    <ClCompile Include="..\..\source\D3DCommandQueue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Unity">

@@ -96,7 +96,7 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API OnInitializeEvent(int renderWidth, int renderHeight, void** IN_MV, void** IN_NORMAL_ROUGHNESS, void** IN_VIEWZ, void** IN_DIFF_RADIANCE_HITDIST, void** OUT_DIFF_RADIANCE_HITDIST)
+static void UNITY_INTERFACE_API OnInitializeEvent(int renderWidth, int renderHeight, void** IN_MV, void** IN_NORMAL_ROUGHNESS, void** IN_VIEWZ, void** IN_DIFF_RADIANCE_HITDIST, void** OUT_DIFF_RADIANCE_HITDIST)
 {
 	if (!NDRInitiazlized)
 	{
