@@ -14,11 +14,9 @@
 
 bool NDRInitiazlized = false;
 
-
-void* _DiffuseTextureOutput;
-
-static float g_FrameNum;
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetFrameNumber(float t) { g_FrameNum = t; }
+int _frameIndex;
+float _viewToClipMatrix[16];
+float _worldToViewMatrix[16];
 
 
 // --------------------------------------------------------------------------
@@ -98,62 +96,60 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeNDR(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API OnInitializeEvent(int renderWidth, int renderHeight, void** IN_MV, void** IN_NORMAL_ROUGHNESS, void** IN_VIEWZ, void** IN_DIFF_RADIANCE_HITDIST, void** OUT_DIFF_RADIANCE_HITDIST)
 {
-	NDRInitiazlized = true;
-
-	s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST, &_DiffuseTextureOutput);
-}
-
-
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
-{
-	if (NDRInitiazlized)
+	if (!NDRInitiazlized)
 	{
-		s_CurrentAPI->Denoise(frameIndex, _viewToClipMatrix, _worldToViewMatrix);
+		NDRInitiazlized = true;
+
+		s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
 	}
 }
 
 
-static void UNITY_INTERFACE_API OnRenderEvent(int eventID)
+static void UNITY_INTERFACE_API OnUpdateParamsEvent(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
+{
+	_frameIndex = frameIndex;
+
+	// Set matrices
+	for (int i = 0; i < 16; ++i)
+	{
+		_viewToClipMatrix[i] = viewToClipMatrix[i];
+		_worldToViewMatrix[i] = worldToViewMatrix[i];
+	}
+}
+
+
+static void UNITY_INTERFACE_API OnDenoiseEvent(int eventID)
 {
 	// Unknown / unsupported graphics device type? Do nothing
 	if (s_CurrentAPI == NULL)
 		return;
 
-
-}
-
-
-
-void TextureDiffuseOutputCallback(int eventID, void* data)
-{
-	if (eventID == kUnityRenderingExtEventUpdateTextureBeginV2)
+	if (NDRInitiazlized)
 	{
-		// UpdateTextureBegin: Generate and return texture image data.
-		UnityRenderingExtTextureUpdateParamsV2* params = (UnityRenderingExtTextureUpdateParamsV2*)data;
-
-		params->texData = _DiffuseTextureOutput;
+		s_CurrentAPI->Denoise(_frameIndex, _viewToClipMatrix, _worldToViewMatrix);
 	}
-	else if (eventID == kUnityRenderingExtEventUpdateTextureEndV2)
-	{
-		// UpdateTextureEnd: Free up the temporary memory.
-		UnityRenderingExtTextureUpdateParamsV2* params = (UnityRenderingExtTextureUpdateParamsV2*)data;
-		free(params->texData);
-	}
-}
-
-UnityRenderingEventAndData UNITY_INTERFACE_EXPORT GetDiffuseOutputTexture()
-{
-	return TextureDiffuseOutputCallback;
 }
 
 
 // --------------------------------------------------------------------------
-// GetRenderEventFunc, an example function we export which is used to get a rendering event callback function.
+// External callback functions
 
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventFunc()
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Denoise()
 {
-	return OnRenderEvent;
+	return OnDenoiseEvent;
+}
+
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UpdateParams(int frameIndex, float* viewToClipMatrix[16], float* worldToViewMatrix[16])
+{
+	OnUpdateParamsEvent(frameIndex, viewToClipMatrix[16], worldToViewMatrix[16]);
+	return 0;
+}
+
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize(int renderWidth, int renderHeight, void** IN_MV, void** IN_NORMAL_ROUGHNESS, void** IN_VIEWZ, void** IN_DIFF_RADIANCE_HITDIST, void** OUT_DIFF_RADIANCE_HITDIST)
+{
+	OnInitializeEvent(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
+	return 0;
 }
 

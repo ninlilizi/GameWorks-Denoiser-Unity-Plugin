@@ -27,7 +27,7 @@ public:
 	virtual bool GetUsesReverseZ() = 0;
 
 	// Initialize NDR
-	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, void* diffuse_output) = 0;
+	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
 	virtual void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]) = 0;
 };
 

@@ -26,6 +26,18 @@
     <ClInclude Include="..\..\NRI\_NRI_SDK\Include\Extensions\NRIWrapperD3D12.h" />
     <ClInclude Include="..\..\NRI\_NRI_SDK\Include\NRI.h" />
     <ClInclude Include="..\..\NRI\_NRI_SDK\Include\NRIDescs.h" />
+    <ClInclude Include="..\..\source\DX12\d3dcommon.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_barriers.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_check_feature_support.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_core.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_default.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_pipeline_state_stream.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_property_format_table.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_render_pass.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_resource_helpers.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_root_signature.h" />
+    <ClInclude Include="..\..\source\DX12\d3dx12_state_object.h" />
     <ClInclude Include="..\..\source\gl3w\gl3w.h" />
     <ClInclude Include="..\..\source\gl3w\glcorearb.h" />
     <ClInclude Include="..\..\source\PlatformBase.h" />
@@ -33,7 +45,6 @@
     <ClInclude Include="..\..\source\Unity\IUnityGraphics.h" />
     <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D11.h" />
     <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D12.h" />
-    <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D9.h" />
     <ClInclude Include="..\..\source\Unity\IUnityGraphicsMetal.h" />
     <ClInclude Include="..\..\source\Unity\IUnityInterface.h" />
     <ClInclude Include="..\..\source\Unity\IUnityRenderingExtensions.h" />
@@ -49,6 +60,7 @@
       <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="..\..\source\RenderingPlugin.cpp" />
+    <ClCompile Include="D3DCommandQueue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\source\RenderingPlugin.def" />

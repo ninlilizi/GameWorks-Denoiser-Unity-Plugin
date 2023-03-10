@@ -6,8 +6,6 @@ LIBRARY
 EXPORTS
    UnityPluginLoad
    UnityPluginUnload
-   SetFrameNumber
-   InitializeNDR
+   Initialize
+   UpdateParams
    Denoise
-   GetRenderEventFunc
-   GetDiffuseOutputTexture
