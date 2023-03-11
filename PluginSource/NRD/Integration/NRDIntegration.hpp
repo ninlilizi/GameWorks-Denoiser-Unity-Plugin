@@ -159,7 +159,7 @@ void NrdIntegration::CreatePipelines()
     // Allocate memory for descriptor sets
     uint32_t descriptorSetSamplersIndex = denoiserDesc.constantBufferSpaceIndex == denoiserDesc.samplersSpaceIndex ? 0 : 1;
     uint32_t descriptorSetResourcesIndex = denoiserDesc.resourcesSpaceIndex == denoiserDesc.constantBufferSpaceIndex ? 0 : (denoiserDesc.resourcesSpaceIndex == denoiserDesc.samplersSpaceIndex ? descriptorSetSamplersIndex : descriptorSetSamplersIndex + 1);
-    uint32_t descriptorSetNum = std::max(descriptorSetSamplersIndex, descriptorSetResourcesIndex) + 1;
+    uint32_t descriptorSetNum = std::max<uint32_t>(descriptorSetSamplersIndex, descriptorSetResourcesIndex) + 1;
 
     nri::DescriptorSetDesc* descriptorSetDescs = (nri::DescriptorSetDesc*)NRD_INTEGRATION_ALLOCA(sizeof(nri::DescriptorSetDesc) * descriptorSetNum);
     memset(descriptorSetDescs, 0, sizeof(nri::DescriptorSetDesc) * descriptorSetNum);
@@ -178,7 +178,7 @@ void NrdIntegration::CreatePipelines()
     for (uint32_t i = 0; i < denoiserDesc.pipelinesNum; i++)
     {
         const nrd::PipelineDesc& nrdPipelineDesc = denoiserDesc.pipelines[i];
-        resourceRangesNum = std::max(resourceRangesNum, nrdPipelineDesc.resourceRangesNum);
+        resourceRangesNum = std::max<uint32_t>(resourceRangesNum, nrdPipelineDesc.resourceRangesNum);
     }
     resourceRangesNum += 1; // samplers
 
@@ -537,7 +537,7 @@ void NrdIntegration::Dispatch(nri::CommandBuffer& commandBuffer, nri::Descriptor
     // Allocating descriptor sets
     uint32_t descriptorSetSamplersIndex = denoiserDesc.constantBufferSpaceIndex == denoiserDesc.samplersSpaceIndex ? 0 : 1;
     uint32_t descriptorSetResourcesIndex = denoiserDesc.resourcesSpaceIndex == denoiserDesc.constantBufferSpaceIndex ? 0 : (denoiserDesc.resourcesSpaceIndex == denoiserDesc.samplersSpaceIndex ? descriptorSetSamplersIndex : descriptorSetSamplersIndex + 1);
-    uint32_t descriptorSetNum = std::max(descriptorSetSamplersIndex, descriptorSetResourcesIndex) + 1;
+    uint32_t descriptorSetNum = std::max<uint32_t>(descriptorSetSamplersIndex, descriptorSetResourcesIndex) + 1;
 
     nri::DescriptorSet** descriptorSets = (nri::DescriptorSet**)NRD_INTEGRATION_ALLOCA(sizeof(nri::DescriptorSet*) * descriptorSetNum);
     nri::PipelineLayout* pipelineLayout = m_PipelineLayouts[dispatchDesc.pipelineIndex];

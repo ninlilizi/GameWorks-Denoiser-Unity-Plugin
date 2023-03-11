@@ -1,0 +1,5 @@
+Package : AGS
+Description : The AMD GPU Services (AGS) library provides software developers with the ability to query AMD GPU software and hardware state information that is not normally available through standard operating systems or graphic APIs.
+Maintainers : dbarkar@nvidia.com
+SWIPAT NvBug :
+Repository :

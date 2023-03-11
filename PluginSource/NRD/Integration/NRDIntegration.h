@@ -104,8 +104,6 @@ public:
     { return double(m_TransientPoolSize) / (1024.0 * 1024.0); }
 
 private:
-    NrdIntegration(const NrdIntegration&);// = delete;
-
     void CreateResources();
     void AllocateAndBindMemory();
     void Dispatch
