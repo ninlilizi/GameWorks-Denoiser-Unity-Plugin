@@ -24,12 +24,12 @@ using Microsoft::WRL::ComPtr;
 
 
 // Gameworks
-#include "../NRI/_NRI_SDK/Include/NRI.h"
-#include "../NRI/_NRI_SDK/Include/NRIDescs.h"
-#include "../NRI/_NRI_SDK/Include/Extensions/NRIWrapperD3D12.h"
-#include "../NRI/_NRI_SDK/Include/Extensions/NRIHelper.h"
-#include "../NRD/_NRD_SDK/Include/NRD.h"
-#include "../NRD/_NRD_SDK/Integration/NRDIntegration.hpp"
+#include "../NRI/Include/NRI.h"
+#include "../NRI/Include/NRIDescs.h"
+#include "../NRI/Include/Extensions/NRIWrapperD3D12.h"
+#include "../NRI/Include/Extensions/NRIHelper.h"
+#include "../NRD/Include/NRD.h"
+#include "../NRD/Integration/NRDIntegration.hpp"
 #include <source/DX12/d3dx12_core.h>
 #include <source/DX12/d3dx12_barriers.h>
 
@@ -51,8 +51,6 @@ public:
 	virtual ~RenderAPI_D3D12() { }
 
 	virtual void ProcessDeviceEvent(UnityGfxDeviceEventType type, IUnityInterfaces* interfaces);
-
-	virtual bool GetUsesReverseZ() { return true; }
 
 private:
 	void CreateResources();
@@ -331,8 +329,6 @@ void RenderAPI_D3D12::ReleaseTextures()
 	{
 		if (textureDescs[i].texture != nullptr) NRI.DestroyTexture(*(nri::Texture*&)textureDescs[i].texture);
 	}
-
-	if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
 }
 
 
@@ -344,15 +340,21 @@ void RenderAPI_D3D12::ReleaseResources()
 	SAFE_RELEASE(s_D3D12CmdList);
 	SAFE_RELEASE(s_D3D12CmdAlloc);
 	SAFE_RELEASE(s_IDXGIAdapter);
-	s_nriDevice = nullptr;
-
-	ReleaseTextures();
-
-	// Release wrapped device
-	//NRI.DestroyDevice(*s_nriDevice);
 
 	// Also NRD needs to be recreated on "resize"
-	NRD.Destroy();
+	if (nrdInitalized)
+	{
+		if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
+
+		ReleaseTextures();
+
+		NRD.Destroy();
+
+		//NRI.DestroyDevice(*s_nriDevice);
+		s_nriDevice = nullptr;
+
+		nrdInitalized = false;
+	}
 }
 
 

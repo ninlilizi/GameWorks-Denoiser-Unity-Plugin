@@ -26,6 +26,9 @@ private static extern void UpdateResources(int renderWidth, int renderHeight, Sy
 private static extern void UpdateParams(int frameIndex, float[] _viewToClipMatrix, float[] _worldToViewMatrix);
 
 [DllImport("RTDenoising")]
+private static extern IntPtr NDRReleaseResources();
+
+[DllImport("RTDenoising")]
 private static extern IntPtr Initialize();
 
 [DllImport("RTDenoising")]
@@ -45,4 +48,9 @@ Run
 ```
 UpdateParams(Frame_Index, projectionMatrixArray, projectionMatrixArray);
 GL.IssuePluginEvent(Denoise(), 0);
+```
+
+Cleanup
+```
+NDRReleaseResources();
 ```

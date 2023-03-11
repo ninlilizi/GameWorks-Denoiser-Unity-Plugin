@@ -22,9 +22,7 @@ public:
 	// Process general event like initialization, shutdown, device loss/reset etc.
 	virtual void ProcessDeviceEvent(UnityGfxDeviceEventType type, IUnityInterfaces* interfaces) = 0;
 
-	// Is the API using "reversed" (1.0 at near plane, 0.0 at far plane) depth buffer?
-	// Reversed Z is used on modern platforms, and improves depth buffer precision.
-	virtual bool GetUsesReverseZ() = 0;
+	virtual void ReleaseResources() = 0;
 
 	// Initialize NDR
 	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;

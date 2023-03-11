@@ -130,6 +130,27 @@ static void UNITY_INTERFACE_API OnDenoiseEvent(int eventID)
 
 
 // Update functions
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NDRReleaseResources(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+{
+	if (NDRInitiazlized)
+	{
+		s_CurrentAPI->ReleaseResources();
+
+		_renderWidth = 0;
+		_renderHeight = 0;
+		_IN_MV = nullptr;
+		_IN_NORMAL_ROUGHNESS = nullptr;
+		_IN_VIEWZ = nullptr;
+		_IN_DIFF_RADIANCE_HITDIST = nullptr;
+		_OUT_DIFF_RADIANCE_HITDIST = nullptr;
+
+		NDRResourcesSet = false;
+		NDRInitiazlized = false;
+	}
+}
+
+
+// Update functions
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UpdateResources(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
 {
 	_renderWidth = renderWidth;
