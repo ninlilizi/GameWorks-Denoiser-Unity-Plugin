@@ -49,7 +49,7 @@ NRDBuild(Switch_Noise,
     matrixArray, matrixArray);
 
 // Excute denoiser on render thread
-GL.IssuePluginEvent(NRDExecute(), 
+GL.IssuePluginEvent(NRDExecute(), 0);
 ```
 
 
