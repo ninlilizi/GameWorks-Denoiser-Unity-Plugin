@@ -83,6 +83,8 @@ private:
 	NrdIntegrationTexture integrationTexture_IN_DIFF_RADIANCE_HITDIST;
 	NrdIntegrationTexture integrationTexture_OUT_DIFF_RADIANCE_HITDIST;
 
+	void* _OUT_DIFF_RADIANCE_HITDIST;
+
 
 	bool nrdInitalized = false;
 
@@ -253,20 +255,22 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	textureDescs[4].nextLayout = nri::TextureLayout::GENERAL;
 
 
-	integrationTexture_IN_MV.format = nri::Format::RGBA8_UNORM;
+	integrationTexture_IN_MV.format = nri::Format::RGBA32_SFLOAT;
 	integrationTexture_IN_MV.subresourceStates = &textureDescs[0];
 	
-	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA8_UNORM;
+	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA32_SFLOAT;
 	integrationTexture_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescs[1];
 	
-	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA8_UNORM;
+	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA32_SFLOAT;
 	integrationTexture_IN_VIEWZ.subresourceStates = &textureDescs[2];
 	
-	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA8_UNORM;
+	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
 	integrationTexture_IN_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[3];
 	
-	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA8_UNORM;
+	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
 	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
+
+	_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
 
 	
 	nrdInitalized = true;
@@ -279,6 +283,8 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 {
 	if (nrdInitalized)
 	{
+		s_D3D12CmdList->Reset(s_D3D12CmdAlloc, NULL);
+
 		// Populate common settings
 		//  - for the first time use defaults
 		//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
@@ -332,8 +338,16 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 
 void RenderAPI_D3D12::Execute()
 {
+	// We inform Unity that we expect this resource to be in D3D12_RESOURCE_STATE_COPY_DEST state,
+	// and because we do not barrier it ourselves, we tell Unity that no changes are done on our command list.
+	UnityGraphicsD3D12ResourceState resourceState = {};
+	resourceState.resource = (ID3D12Resource*)_OUT_DIFF_RADIANCE_HITDIST;
+	resourceState.expected = D3D12_RESOURCE_STATE_COPY_DEST;
+	resourceState.current = D3D12_RESOURCE_STATE_COPY_DEST;
+
+
 	// Execute the generated buffer
-	s_D3D12->ExecuteCommandList(s_D3D12CmdList, 1, NULL);
+	s_D3D12->ExecuteCommandList(s_D3D12CmdList, 1, &resourceState);
 	s_D3D12CmdList->Reset(s_D3D12CmdAlloc, NULL);
 }
 

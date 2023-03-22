@@ -16,6 +16,16 @@ Copy the following to your Unity plugins location to use
 * RTDenoising.DLL
 
 
+
+Create the required render targets with this format
+```
+RenderTextureDescriptor rtDesc = new RenderTextureDescriptor()
+{
+    rtDesc.colorFormat = RenderTextureFormat.ARGBFloat;
+    rtDesc.graphicsFormat = GraphicsFormat.R32G32B32A32_SFloat;
+};
+```
+
 Import functions
 
 ```
@@ -25,6 +35,8 @@ private static extern void NRDBuild(int frameIndex, int renderWidth, int renderH
 [DllImport("RTDenoising")]
 private static extern IntPtr NRDExecute();
 ```
+
+
   
 Rough Usage: (Do this at the end of a frame)
 
@@ -38,9 +50,9 @@ float[] matrixArray = new float[16];
 MatrixToFloatArray(projectionMatrix, ref matrixArray);
 
 // Set data to denoiser
-NRDBuild(Switch_Noise, 
-    RT_DiffuseOutput.width, 
-    RT_DiffuseOutput.height,
+NRDSetParams(Switch_Noise,
+    RT_DiffuseOutput.width,
+    RT_DiffuseOutput.height
     RT_NRD_IN_MV.GetNativeTexturePtr(),
     RT_NRD_IN_NORMAL_ROUGHNESS.GetNativeTexturePtr(),
     RT_NRD_IN_VIEWZ.GetNativeTexturePtr(),

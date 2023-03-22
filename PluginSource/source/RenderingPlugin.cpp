@@ -13,9 +13,22 @@
 #include "../NRI/_NRI_SDK/Include/NRI.h"
 
 bool _NRDInitiazlized = false;
+bool _NRDParamsSet = false;
 
 int _renderWidth;
 int _renderHeight;
+int _prevRenderWidth;
+int _prevRenderHeight;
+int _frameIndex;
+
+void* _IN_MV;
+void* _IN_NORMAL_ROUGHNESS;
+void* _IN_VIEWZ;
+void* _IN_DIFF_RADIANCE_HITDIST;
+void* _OUT_DIFF_RADIANCE_HITDIST;
+
+float _viewToClipMatrix[16];
+float _worldToViewMatrix[16];
 
 
 // --------------------------------------------------------------------------
@@ -98,18 +111,44 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 // Events
 static void UNITY_INTERFACE_API OnExecuteEvent(int eventID)
 {
-	// Unknown / unsupported graphics device type? Do nothing
-	if (s_CurrentAPI == NULL)
+	// Unknown / unsupported graphics device type, or we've not set the params? Do nothing
+	if (s_CurrentAPI == NULL  || !_NRDParamsSet)
 		return;
+
+
+	if ((_renderWidth != _prevRenderWidth || _renderHeight != _prevRenderHeight) && _NRDInitiazlized)
+	{
+		s_CurrentAPI->ReleaseNRD();
+
+		_NRDInitiazlized = false;
+	}
+
+	if (!_NRDInitiazlized &&
+		_renderWidth > 0 &&
+		_renderHeight > 0 &&
+		_IN_MV != nullptr &&
+		_IN_NORMAL_ROUGHNESS != nullptr &&
+		_IN_VIEWZ != nullptr &&
+		_IN_DIFF_RADIANCE_HITDIST != nullptr &&
+		_OUT_DIFF_RADIANCE_HITDIST != nullptr)
+	{
+		s_CurrentAPI->Initialize(_renderWidth, _renderHeight, _IN_MV, _IN_NORMAL_ROUGHNESS, _IN_VIEWZ, _IN_DIFF_RADIANCE_HITDIST, _OUT_DIFF_RADIANCE_HITDIST);
+
+		_prevRenderWidth = _renderWidth;
+		_prevRenderHeight = _renderHeight;
+
+		_NRDInitiazlized = true;
+	}
 
 	if (_NRDInitiazlized)
 	{
+		s_CurrentAPI->Denoise(_frameIndex, _viewToClipMatrix, _worldToViewMatrix);
 		s_CurrentAPI->Execute();
 	}
 }
 
 
-// Update functions
+// External functions
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 {
 	if (_NRDInitiazlized && s_CurrentAPI != nullptr)
@@ -119,53 +158,38 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 		_renderWidth = 0;
 		_renderHeight = 0;
 		_NRDInitiazlized = false;
+
+		_NRDParamsSet = false;
 	}
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDBuild(int frameIndex, int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, float viewToClipMatrix[16], float worldToViewMatrix[16])
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetParams(int frameIndex, int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, float viewToClipMatrix[16], float worldToViewMatrix[16])
 {
-	if ((renderWidth != _renderWidth || renderHeight != _renderHeight) && _NRDInitiazlized)
-	{
-		s_CurrentAPI->ReleaseNRD();
+	_IN_MV = IN_MV;
+	_IN_NORMAL_ROUGHNESS = IN_NORMAL_ROUGHNESS;
+	_IN_VIEWZ = IN_VIEWZ;
+	_IN_DIFF_RADIANCE_HITDIST = IN_DIFF_RADIANCE_HITDIST;
+	_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
 
-		_NRDInitiazlized = false;
+	_renderWidth = renderWidth;
+	_renderHeight = renderHeight;
+
+	_frameIndex = frameIndex;
+
+	for (int i = 0; i < 16; ++i)
+	{
+		_viewToClipMatrix[i] = viewToClipMatrix[i];
+		_worldToViewMatrix[i] = worldToViewMatrix[i];
 	}
 
-	if (!_NRDInitiazlized &&
-		renderWidth > 0 && 
-		renderHeight > 0 &&
-		IN_MV != nullptr &&
-		IN_NORMAL_ROUGHNESS != nullptr &&
-		IN_VIEWZ != nullptr &&
-		IN_DIFF_RADIANCE_HITDIST != nullptr &&
-		OUT_DIFF_RADIANCE_HITDIST != nullptr)
-	{
-		s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
-
-		_renderWidth = renderWidth;
-		_renderHeight = renderHeight;
-
-		_NRDInitiazlized = true;
-	}
-
-	if (_NRDInitiazlized)
-	{
-		s_CurrentAPI->Denoise(frameIndex, viewToClipMatrix, worldToViewMatrix);
-	}
+	_NRDParamsSet = true;
 }
 
 
 // External callback functions
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDExecute()
 {
-	if (_NRDInitiazlized)
-	{
-		return OnExecuteEvent;
-	}
-	else
-	{
-		return 0;
-	}
+	return OnExecuteEvent;
 }
 
