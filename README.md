@@ -33,13 +33,22 @@ Import functions
 private static extern void NRDBuild(int frameIndex, int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST, float[] viewToClipMatrix, float[] worldToViewMatrix);
 
 [DllImport("RTDenoising")]
+private static extern void NRDReleaseResources();
+
+[DllImport("RTDenoising")]
 private static extern IntPtr NRDExecute();
+
 ```
 
-
+Cleanup
+```
+void OnDisable()
+{
+    NRDReleaseResources();
+}
+```
   
 Rough Usage: (Do this at the end of a frame)
-
 
 Run
 ```

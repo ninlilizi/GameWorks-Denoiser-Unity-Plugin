@@ -153,12 +153,23 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 {
 	if (_NRDInitiazlized && s_CurrentAPI != nullptr)
 	{
-		s_CurrentAPI->ReleaseResources();
+		s_CurrentAPI->ReleaseNRD();
+
+		_frameIndex = 0;
 
 		_renderWidth = 0;
 		_renderHeight = 0;
-		_NRDInitiazlized = false;
+		_prevRenderWidth = 0;
+		_prevRenderHeight = 0;
 
+		_IN_MV = nullptr;
+		_IN_NORMAL_ROUGHNESS = nullptr;
+		_IN_VIEWZ = nullptr;
+		_IN_DIFF_RADIANCE_HITDIST = nullptr;
+		_OUT_DIFF_RADIANCE_HITDIST = nullptr;
+
+
+		_NRDInitiazlized = false;
 		_NRDParamsSet = false;
 	}
 }
