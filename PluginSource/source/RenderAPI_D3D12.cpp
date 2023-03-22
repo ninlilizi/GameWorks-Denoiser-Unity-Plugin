@@ -58,6 +58,9 @@ private:
 	void ReleaseTextures();
 	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
 	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
+	void Execute();
+	void ReleaseNRD();
+
 
 private:
 	IUnityGraphicsD3D12v4* s_D3D12;
@@ -250,19 +253,19 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	textureDescs[4].nextLayout = nri::TextureLayout::GENERAL;
 
 
-	integrationTexture_IN_MV.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_MV.format = nri::Format::RGBA8_UNORM;
 	integrationTexture_IN_MV.subresourceStates = &textureDescs[0];
 	
-	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA8_UNORM;
 	integrationTexture_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescs[1];
 	
-	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA8_UNORM;
 	integrationTexture_IN_VIEWZ.subresourceStates = &textureDescs[2];
 	
-	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA8_UNORM;
 	integrationTexture_IN_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[3];
 	
-	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA8_UNORM;
 	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
 
 	
@@ -298,7 +301,9 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 
 		// Set settings for each method in the NRD instance
 		nrd::ReblurSettings settings = {};
-		settings.enableAntiFirefly = false;
+		settings.enableAntiFirefly = true;
+		settings.maxAccumulatedFrameNum = 60;
+		settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
 
 
 		NRD.SetMethodSettings(nrd::Method::REBLUR_DIFFUSE, &settings);
@@ -319,8 +324,19 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 		bool enableDescriptorCaching = true;
 
 		NRD.Denoise(frameIndex, *s_nriCommandBuffer, commonSettings, userPool, enableDescriptorCaching);
+
+		s_D3D12CmdList->Close();
 	}
 }
+
+
+void RenderAPI_D3D12::Execute()
+{
+	// Execute the generated buffer
+	s_D3D12->ExecuteCommandList(s_D3D12CmdList, 1, NULL);
+	s_D3D12CmdList->Reset(s_D3D12CmdAlloc, NULL);
+}
+
 
 void RenderAPI_D3D12::ReleaseTextures()
 {
@@ -341,17 +357,23 @@ void RenderAPI_D3D12::ReleaseResources()
 	SAFE_RELEASE(s_D3D12CmdAlloc);
 	SAFE_RELEASE(s_IDXGIAdapter);
 
+	ReleaseTextures();
+
+	//NRI.DestroyDevice(*s_nriDevice);
+	s_nriDevice = nullptr;
+
+	nrdInitalized = false;
+}
+
+
+void RenderAPI_D3D12::ReleaseNRD()
+{
 	// Also NRD needs to be recreated on "resize"
 	if (nrdInitalized)
 	{
 		if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
-
 		ReleaseTextures();
-
 		NRD.Destroy();
-
-		//NRI.DestroyDevice(*s_nriDevice);
-		s_nriDevice = nullptr;
 
 		nrdInitalized = false;
 	}

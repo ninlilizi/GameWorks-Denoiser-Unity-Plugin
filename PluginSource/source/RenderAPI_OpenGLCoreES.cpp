@@ -47,6 +47,8 @@ private:
 	void ReleaseResources();
 	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
 	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
+	void Execute();
+	void ReleaseNRD();
 
 private:
 	UnityGfxRenderer m_APIType;
@@ -92,6 +94,16 @@ void RenderAPI_OpenGLCoreES::Initialize(int renderWidth, int renderHeight, void*
 
 
 void RenderAPI_OpenGLCoreES::Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+{
+}
+
+
+void RenderAPI_OpenGLCoreES::Execute()
+{
+}
+
+
+void RenderAPI_OpenGLCoreES::ReleaseNRD()
 {
 }
 

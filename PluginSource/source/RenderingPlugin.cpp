@@ -12,19 +12,10 @@
 // Gameworks
 #include "../NRI/_NRI_SDK/Include/NRI.h"
 
-bool NDRInitiazlized = false;
-bool NDRResourcesSet = false;
+bool _NRDInitiazlized = false;
 
-int _frameIndex;
 int _renderWidth;
 int _renderHeight;
-void* _IN_MV;
-void* _IN_NORMAL_ROUGHNESS;
-void* _IN_VIEWZ;
-void* _IN_DIFF_RADIANCE_HITDIST;
-void* _OUT_DIFF_RADIANCE_HITDIST;
-float _viewToClipMatrix[16];
-float _worldToViewMatrix[16];
 
 
 // --------------------------------------------------------------------------
@@ -105,86 +96,76 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 
 
 // Events
-static void UNITY_INTERFACE_API OnInitializeEvent(int eventID)
-{
-	if (!NDRInitiazlized && NDRResourcesSet)
-	{
-		s_CurrentAPI->Initialize(_renderWidth, _renderHeight, _IN_MV, _IN_NORMAL_ROUGHNESS, _IN_VIEWZ, _IN_DIFF_RADIANCE_HITDIST, _OUT_DIFF_RADIANCE_HITDIST);
-
-		NDRInitiazlized = true;
-	}
-}
-
-
-static void UNITY_INTERFACE_API OnDenoiseEvent(int eventID)
+static void UNITY_INTERFACE_API OnExecuteEvent(int eventID)
 {
 	// Unknown / unsupported graphics device type? Do nothing
 	if (s_CurrentAPI == NULL)
 		return;
 
-	if (NDRInitiazlized && NDRResourcesSet)
+	if (_NRDInitiazlized)
 	{
-		s_CurrentAPI->Denoise(_frameIndex, _viewToClipMatrix, _worldToViewMatrix);
+		s_CurrentAPI->Execute();
 	}
 }
 
 
 // Update functions
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NDRReleaseResources(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 {
-	if (NDRInitiazlized)
+	if (_NRDInitiazlized && s_CurrentAPI != nullptr)
 	{
 		s_CurrentAPI->ReleaseResources();
 
 		_renderWidth = 0;
 		_renderHeight = 0;
-		_IN_MV = nullptr;
-		_IN_NORMAL_ROUGHNESS = nullptr;
-		_IN_VIEWZ = nullptr;
-		_IN_DIFF_RADIANCE_HITDIST = nullptr;
-		_OUT_DIFF_RADIANCE_HITDIST = nullptr;
-
-		NDRResourcesSet = false;
-		NDRInitiazlized = false;
+		_NRDInitiazlized = false;
 	}
 }
 
 
-// Update functions
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UpdateResources(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDBuild(int frameIndex, int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, float viewToClipMatrix[16], float worldToViewMatrix[16])
 {
-	_renderWidth = renderWidth;
-	_renderHeight = renderHeight;
-	_IN_MV = IN_MV;
-	_IN_NORMAL_ROUGHNESS = IN_NORMAL_ROUGHNESS;
-	_IN_VIEWZ = IN_VIEWZ;
-	_IN_DIFF_RADIANCE_HITDIST = IN_DIFF_RADIANCE_HITDIST;
-	_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
-
-	NDRResourcesSet = true;
-}
-
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UpdateParams(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
-{
-	_frameIndex = frameIndex;
-
-	// Set matrices
-	for (int i = 0; i < 16; ++i)
+	if ((renderWidth != _renderWidth || renderHeight != _renderHeight) && _NRDInitiazlized)
 	{
-		_viewToClipMatrix[i] = viewToClipMatrix[i];
-		_worldToViewMatrix[i] = worldToViewMatrix[i];
+		s_CurrentAPI->ReleaseNRD();
+
+		_NRDInitiazlized = false;
+	}
+
+	if (!_NRDInitiazlized &&
+		renderWidth > 0 && 
+		renderHeight > 0 &&
+		IN_MV != nullptr &&
+		IN_NORMAL_ROUGHNESS != nullptr &&
+		IN_VIEWZ != nullptr &&
+		IN_DIFF_RADIANCE_HITDIST != nullptr &&
+		OUT_DIFF_RADIANCE_HITDIST != nullptr)
+	{
+		s_CurrentAPI->Initialize(renderWidth, renderHeight, IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST, OUT_DIFF_RADIANCE_HITDIST);
+
+		_renderWidth = renderWidth;
+		_renderHeight = renderHeight;
+
+		_NRDInitiazlized = true;
+	}
+
+	if (_NRDInitiazlized)
+	{
+		s_CurrentAPI->Denoise(frameIndex, viewToClipMatrix, worldToViewMatrix);
 	}
 }
 
 
 // External callback functions
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize()
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDExecute()
 {
-	return OnInitializeEvent;
-}
-
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Denoise()
-{
-	return OnDenoiseEvent;
+	if (_NRDInitiazlized)
+	{
+		return OnExecuteEvent;
+	}
+	else
+	{
+		return 0;
+	}
 }
 

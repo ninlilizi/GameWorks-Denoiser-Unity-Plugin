@@ -20,37 +20,36 @@ Import functions
 
 ```
 [DllImport("RTDenoising")]
-private static extern void UpdateResources(int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST);
+private static extern void NRDBuild(int frameIndex, int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST, float[] viewToClipMatrix, float[] worldToViewMatrix);
 
 [DllImport("RTDenoising")]
-private static extern void UpdateParams(int frameIndex, float[] _viewToClipMatrix, float[] _worldToViewMatrix);
-
-[DllImport("RTDenoising")]
-private static extern IntPtr NDRReleaseResources();
-
-[DllImport("RTDenoising")]
-private static extern IntPtr Initialize();
-
-[DllImport("RTDenoising")]
-private static extern IntPtr Denoise();
+private static extern IntPtr NRDExecute();
 ```
   
 Rough Usage: (Do this at the end of a frame)
 
 
-Initialize
-```
-UpdateResources(RTWidth, RTHeight, MotionVectorsRT.GetNativeTexturePtr(), NormalRoughnessRT.GetNativeTexturePtr(), LinearDepthRT.GetNativeTexturePtr(), DiffuseRadianceHitDistInRT.GetNativeTexturePtr(), DiffuseRadianceHitDistOutRT.GetNativeTexturePtr());
-GL.IssuePluginEvent(Initialize(), 0);
-```
-
 Run
 ```
-UpdateParams(Frame_Index, projectionMatrixArray, projectionMatrixArray);
-GL.IssuePluginEvent(Denoise(), 0);
+// Transfer required projection matrices to floats
+Matrix4x4 projectionMatrix = _Camera.projectionMatrix;
+projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);
+float[] matrixArray = new float[16];
+MatrixToFloatArray(projectionMatrix, ref matrixArray);
+
+// Set data to denoiser
+NRDBuild(Switch_Noise, 
+    RT_DiffuseOutput.width, 
+    RT_DiffuseOutput.height,
+    RT_NRD_IN_MV.GetNativeTexturePtr(),
+    RT_NRD_IN_NORMAL_ROUGHNESS.GetNativeTexturePtr(),
+    RT_NRD_IN_VIEWZ.GetNativeTexturePtr(),
+    RT_NRD_IN_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr(),
+    RT_NRD_OUT_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr(),
+    matrixArray, matrixArray);
+
+// Excute denoiser on render thread
+GL.IssuePluginEvent(NRDExecute(), 
 ```
 
-Cleanup
-```
-NDRReleaseResources();
-```
+

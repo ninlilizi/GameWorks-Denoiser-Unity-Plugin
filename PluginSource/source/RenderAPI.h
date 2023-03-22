@@ -27,6 +27,8 @@ public:
 	// Initialize NDR
 	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
 	virtual void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]) = 0;
+	virtual void Execute() = 0;
+	virtual void ReleaseNRD() = 0;
 };
 
 

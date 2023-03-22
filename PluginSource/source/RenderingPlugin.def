@@ -6,8 +6,6 @@ LIBRARY
 EXPORTS
    UnityPluginLoad
    UnityPluginUnload
-   NDRReleaseResources
-   UpdateResources
-   UpdateParams
-   Initialize
-   Denoise
+   NRDReleaseResources
+   NRDExecute
+   NRDBuild
