@@ -1,6 +1,6 @@
 # Unity Native Plugin for Nvidia GameWorks Denoiser
 
-## Note, this does not work yet!
+## Note, while this now 'works', there is an outstanding memleak!
 
 This only supports the Unity DX12 renderer. Make sure this is set first.
 

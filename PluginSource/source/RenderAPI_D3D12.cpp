@@ -75,6 +75,16 @@ private:
 	nri::CommandBuffer* s_nriCommandBuffer;
 	nri::TextureTransitionBarrierDesc textureDescs[5];
 
+	NrdUserPool userPool;
+	nrd::CommonSettings commonSettings;
+	nrd::RelaxDiffuseSettings relaxSettings;
+	UnityGraphicsD3D12ResourceState resourceState;
+
+	nri::TextureD3D12Desc textureDescIN_MV;
+	nri::TextureD3D12Desc textureDescIN_NORMAL_ROUGHNESS;
+	nri::TextureD3D12Desc textureDescIN_VIEWZ;
+	nri::TextureD3D12Desc textureDescIN_DIFF_RADIANCE_HITDIST;
+	nri::TextureD3D12Desc textureDescOUT_DIFF_RADIANCE_HITDIST;
 
 	// Integration textures
 	NrdIntegrationTexture integrationTexture_IN_MV;
@@ -187,15 +197,14 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	// Release resources before recreating
 	if (nrdInitalized)
 	{
-		ReleaseTextures();
-		NRD.Destroy();
+		ReleaseNRD();
 	}
 
 	// Initialize NRD
 	const nrd::MethodDesc methodDescs[] =
 	{
 		// Put neeeded methods here, like:
-		{ nrd::Method::REBLUR_DIFFUSE, renderWidth, renderHeight }
+		{ nrd::Method::RELAX_DIFFUSE, renderWidth, renderHeight }
 	};
 
 	nrd::DenoiserCreationDesc denoiserCreationDesc = {};
@@ -222,33 +231,33 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 
 	//nri::CommandBuffer* nriCommandBuffer = nullptr;
 	NRI.CreateCommandBufferD3D12(*s_nriDevice, commandBufferDesc, s_nriCommandBuffer);
-	
+
 	// Wrap required textures (better do it only once on initialization)
-	nri::TextureD3D12Desc textureDescIN_MV = {};
+	textureDescIN_MV = {};
 	textureDescIN_MV.d3d12Resource = (ID3D12Resource*)IN_MV;
 	NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_MV, (nri::Texture*&)textureDescs[0].texture);
 	textureDescs[0].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[0].nextLayout = nri::TextureLayout::GENERAL;
 	
-	nri::TextureD3D12Desc textureDescIN_NORMAL_ROUGHNESS = {};
+	textureDescIN_NORMAL_ROUGHNESS = {};
 	textureDescIN_NORMAL_ROUGHNESS.d3d12Resource = (ID3D12Resource*)IN_NORMAL_ROUGHNESS;
 	NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_NORMAL_ROUGHNESS, (nri::Texture*&)textureDescs[1].texture);
 	textureDescs[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[1].nextLayout = nri::TextureLayout::GENERAL;
 
-	nri::TextureD3D12Desc textureDescIN_VIEWZ = {};
+	textureDescIN_VIEWZ = {};
 	textureDescIN_VIEWZ.d3d12Resource = (ID3D12Resource*)IN_VIEWZ;
 	NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_VIEWZ, (nri::Texture*&)textureDescs[2].texture);
 	textureDescs[2].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[2].nextLayout = nri::TextureLayout::GENERAL;
 
-	nri::TextureD3D12Desc textureDescIN_DIFF_RADIANCE_HITDIST = {};
+	textureDescIN_DIFF_RADIANCE_HITDIST = {};
 	textureDescIN_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)IN_DIFF_RADIANCE_HITDIST;
 	NRI.CreateTextureD3D12(*s_nriDevice, textureDescIN_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[3].texture);
 	textureDescs[3].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[3].nextLayout = nri::TextureLayout::GENERAL;
 
-	nri::TextureD3D12Desc textureDescOUT_DIFF_RADIANCE_HITDIST = {};
+	textureDescOUT_DIFF_RADIANCE_HITDIST = {};
 	textureDescOUT_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)OUT_DIFF_RADIANCE_HITDIST;
 	NRI.CreateTextureD3D12(*s_nriDevice, textureDescOUT_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[4].texture);
 	textureDescs[4].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
@@ -272,6 +281,46 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 
 	_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
 
+
+
+	// Fill up the user pool
+	userPool = {};
+	{
+		// Fill only required "in-use" inputs and outputs in appropriate slots using entryDescs & entryFormat,
+		// applying remapping if necessary. Unused slots will be {nullptr, nri::Format::UNKNOWN}
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_MV, integrationTexture_IN_MV);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_IN_NORMAL_ROUGHNESS);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_VIEWZ, integrationTexture_IN_VIEWZ);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST, integrationTexture_IN_DIFF_RADIANCE_HITDIST);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST, integrationTexture_OUT_DIFF_RADIANCE_HITDIST);
+	};
+
+
+	// Populate common settings
+	//  - for the first time use defaults
+	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
+	commonSettings = {};
+	commonSettings.isBaseColorMetalnessAvailable = false;
+	commonSettings.isMotionVectorInWorldSpace = false;
+
+	// Set settings for each method in the NRD instance
+	relaxSettings = {};
+	relaxSettings.enableAntiFirefly = true;
+	relaxSettings.diffuseMaxAccumulatedFrameNum = 10;
+	relaxSettings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_5X5;
+
+
+	NRD.SetMethodSettings(nrd::Method::RELAX_DIFFUSE, &relaxSettings);
+
+
+
+	// We inform Unity that we expect this resource to be in D3D12_RESOURCE_STATE_COPY_DEST state,
+	// and because we do not barrier it ourselves, we tell Unity that no changes are done on our command list.
+	resourceState = {};
+	resourceState.resource = (ID3D12Resource*)_OUT_DIFF_RADIANCE_HITDIST;
+	resourceState.expected = D3D12_RESOURCE_STATE_COPY_DEST;
+	resourceState.current = D3D12_RESOURCE_STATE_COPY_DEST;
+
 	
 	nrdInitalized = true;
 }
@@ -285,12 +334,8 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 	{
 		s_D3D12CmdList->Reset(s_D3D12CmdAlloc, NULL);
 
-		// Populate common settings
-		//  - for the first time use defaults
-		//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
-		nrd::CommonSettings commonSettings = {};
+
 		commonSettings.frameIndex = frameIndex;
-		commonSettings.isBaseColorMetalnessAvailable = false;
 
 		// Set matrices
 		for (int i = 0; i < 16; ++i)
@@ -305,31 +350,9 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 		}
 
 
-		// Set settings for each method in the NRD instance
-		nrd::ReblurSettings settings = {};
-		settings.enableAntiFirefly = true;
-		settings.maxAccumulatedFrameNum = 60;
-		settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
-
-
-		NRD.SetMethodSettings(nrd::Method::REBLUR_DIFFUSE, &settings);
-
-		// Fill up the user pool
-		NrdUserPool userPool = {};
-		{
-			// Fill only required "in-use" inputs and outputs in appropriate slots using entryDescs & entryFormat,
-			// applying remapping if necessary. Unused slots will be {nullptr, nri::Format::UNKNOWN}
-			NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_MV, integrationTexture_IN_MV);
-			NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_IN_NORMAL_ROUGHNESS);
-			NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_VIEWZ, integrationTexture_IN_VIEWZ);
-			NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST, integrationTexture_IN_DIFF_RADIANCE_HITDIST);
-			NrdIntegration_SetResource(userPool, nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST, integrationTexture_OUT_DIFF_RADIANCE_HITDIST);
-		};
-
 		// Better use "true" if resources are not changing between frames (i.e. are not suballocated from a heap)
-		bool enableDescriptorCaching = true;
+		NRD.Denoise(frameIndex, *s_nriCommandBuffer, commonSettings, userPool, true);
 
-		NRD.Denoise(frameIndex, *s_nriCommandBuffer, commonSettings, userPool, enableDescriptorCaching);
 
 		s_D3D12CmdList->Close();
 	}
@@ -338,14 +361,6 @@ void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float
 
 void RenderAPI_D3D12::Execute()
 {
-	// We inform Unity that we expect this resource to be in D3D12_RESOURCE_STATE_COPY_DEST state,
-	// and because we do not barrier it ourselves, we tell Unity that no changes are done on our command list.
-	UnityGraphicsD3D12ResourceState resourceState = {};
-	resourceState.resource = (ID3D12Resource*)_OUT_DIFF_RADIANCE_HITDIST;
-	resourceState.expected = D3D12_RESOURCE_STATE_COPY_DEST;
-	resourceState.current = D3D12_RESOURCE_STATE_COPY_DEST;
-
-
 	// Execute the generated buffer
 	s_D3D12->ExecuteCommandList(s_D3D12CmdList, 1, &resourceState);
 	s_D3D12CmdList->Reset(s_D3D12CmdAlloc, NULL);
@@ -359,6 +374,8 @@ void RenderAPI_D3D12::ReleaseTextures()
 	{
 		if (textureDescs[i].texture != nullptr) NRI.DestroyTexture(*(nri::Texture*&)textureDescs[i].texture);
 	}
+
+	_OUT_DIFF_RADIANCE_HITDIST = nullptr;
 }
 
 
@@ -371,7 +388,8 @@ void RenderAPI_D3D12::ReleaseResources()
 	SAFE_RELEASE(s_D3D12CmdAlloc);
 	SAFE_RELEASE(s_IDXGIAdapter);
 
-	ReleaseTextures();
+	//ReleaseTextures();
+	ReleaseNRD();
 
 	//NRI.DestroyDevice(*s_nriDevice);
 	s_nriDevice = nullptr;
@@ -386,6 +404,7 @@ void RenderAPI_D3D12::ReleaseNRD()
 	if (nrdInitalized)
 	{
 		if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
+
 		ReleaseTextures();
 		NRD.Destroy();
 

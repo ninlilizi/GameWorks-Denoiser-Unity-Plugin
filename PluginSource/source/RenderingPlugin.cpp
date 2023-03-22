@@ -12,8 +12,8 @@
 // Gameworks
 #include "../NRI/_NRI_SDK/Include/NRI.h"
 
-bool _NRDInitiazlized = false;
-bool _NRDParamsSet = false;
+bool _NRDInitiazlized;
+bool _NRDParamsSet;
 
 int _renderWidth;
 int _renderHeight;
@@ -74,6 +74,23 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API RegisterPlugin()
 }
 #endif
 
+
+void ClearLocalVars()
+{
+	_frameIndex = 0;
+	_renderWidth = 0;
+	_renderHeight = 0;
+	_prevRenderWidth = 0;
+	_prevRenderHeight = 0;
+	_IN_MV = nullptr;
+	_IN_NORMAL_ROUGHNESS = nullptr;
+	_IN_VIEWZ = nullptr;
+	_IN_DIFF_RADIANCE_HITDIST = nullptr;
+	_OUT_DIFF_RADIANCE_HITDIST = nullptr;
+	_NRDInitiazlized = false;
+	_NRDParamsSet = false;
+}
+
 // --------------------------------------------------------------------------
 // GraphicsDeviceEvent
 
@@ -104,6 +121,8 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 		delete s_CurrentAPI;
 		s_CurrentAPI = NULL;
 		s_DeviceType = kUnityGfxRendererNull;
+
+		ClearLocalVars();
 	}
 }
 
@@ -115,15 +134,12 @@ static void UNITY_INTERFACE_API OnExecuteEvent(int eventID)
 	if (s_CurrentAPI == NULL  || !_NRDParamsSet)
 		return;
 
-
-	if ((_renderWidth != _prevRenderWidth || _renderHeight != _prevRenderHeight) && _NRDInitiazlized)
+	if (_NRDInitiazlized)
 	{
-		s_CurrentAPI->ReleaseNRD();
-
-		_NRDInitiazlized = false;
+		s_CurrentAPI->Denoise(_frameIndex, _viewToClipMatrix, _worldToViewMatrix);
+		s_CurrentAPI->Execute();
 	}
-
-	if (!_NRDInitiazlized &&
+	else if (!_NRDInitiazlized &&
 		_renderWidth > 0 &&
 		_renderHeight > 0 &&
 		_IN_MV != nullptr &&
@@ -133,17 +149,7 @@ static void UNITY_INTERFACE_API OnExecuteEvent(int eventID)
 		_OUT_DIFF_RADIANCE_HITDIST != nullptr)
 	{
 		s_CurrentAPI->Initialize(_renderWidth, _renderHeight, _IN_MV, _IN_NORMAL_ROUGHNESS, _IN_VIEWZ, _IN_DIFF_RADIANCE_HITDIST, _OUT_DIFF_RADIANCE_HITDIST);
-
-		_prevRenderWidth = _renderWidth;
-		_prevRenderHeight = _renderHeight;
-
 		_NRDInitiazlized = true;
-	}
-
-	if (_NRDInitiazlized)
-	{
-		s_CurrentAPI->Denoise(_frameIndex, _viewToClipMatrix, _worldToViewMatrix);
-		s_CurrentAPI->Execute();
 	}
 }
 
@@ -155,28 +161,21 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 	{
 		s_CurrentAPI->ReleaseNRD();
 
-		_frameIndex = 0;
-
-		_renderWidth = 0;
-		_renderHeight = 0;
-		_prevRenderWidth = 0;
-		_prevRenderHeight = 0;
-
-		_IN_MV = nullptr;
-		_IN_NORMAL_ROUGHNESS = nullptr;
-		_IN_VIEWZ = nullptr;
-		_IN_DIFF_RADIANCE_HITDIST = nullptr;
-		_OUT_DIFF_RADIANCE_HITDIST = nullptr;
-
-
-		_NRDInitiazlized = false;
-		_NRDParamsSet = false;
+		ClearLocalVars();
 	}
 }
 
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetParams(int frameIndex, int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST, float viewToClipMatrix[16], float worldToViewMatrix[16])
 {
+	if ((renderWidth != _prevRenderWidth || renderHeight != _prevRenderHeight) && _NRDInitiazlized)
+	{
+		NRDReleaseResources();
+
+		_prevRenderWidth = renderWidth;
+		_prevRenderHeight = renderHeight;
+	}
+
 	_IN_MV = IN_MV;
 	_IN_NORMAL_ROUGHNESS = IN_NORMAL_ROUGHNESS;
 	_IN_VIEWZ = IN_VIEWZ;
@@ -203,4 +202,3 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDExe
 {
 	return OnExecuteEvent;
 }
-
