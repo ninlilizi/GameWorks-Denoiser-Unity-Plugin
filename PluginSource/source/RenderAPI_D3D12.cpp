@@ -264,19 +264,19 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	textureDescs[4].nextLayout = nri::TextureLayout::GENERAL;
 
 
-	integrationTexture_IN_MV.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_MV.format = nri::Format::RGBA16_SFLOAT;
 	integrationTexture_IN_MV.subresourceStates = &textureDescs[0];
 	
-	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA16_SFLOAT;
 	integrationTexture_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescs[1];
 	
-	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA16_SFLOAT;
 	integrationTexture_IN_VIEWZ.subresourceStates = &textureDescs[2];
 	
-	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA16_SFLOAT;
 	integrationTexture_IN_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[3];
 	
-	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA32_SFLOAT;
+	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA16_SFLOAT;
 	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
 
 	_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
@@ -301,12 +301,11 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
 	commonSettings = {};
 	commonSettings.isBaseColorMetalnessAvailable = false;
-	commonSettings.isMotionVectorInWorldSpace = false;
+	commonSettings.isMotionVectorInWorldSpace = true;
 
 	// Set settings for each method in the NRD instance
 	relaxSettings = {};
 	relaxSettings.enableAntiFirefly = true;
-	relaxSettings.diffuseMaxAccumulatedFrameNum = 10;
 	relaxSettings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_5X5;
 
 

@@ -21,8 +21,8 @@ Create the required render targets with this format
 ```
 RenderTextureDescriptor rtDesc = new RenderTextureDescriptor()
 {
-    rtDesc.colorFormat = RenderTextureFormat.ARGBFloat;
-    rtDesc.graphicsFormat = GraphicsFormat.R32G32B32A32_SFloat;
+    rtDesc.colorFormat = RenderTextureFormat.ARGBHalf;
+    rtDesc.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
 };
 ```
 
