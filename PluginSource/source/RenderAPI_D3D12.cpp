@@ -37,6 +37,7 @@ using Microsoft::WRL::ComPtr;
 const int maxNumberOfFramesInFlight = 1;
 NrdIntegration NRD = NrdIntegration(maxNumberOfFramesInFlight);
 NrdIntegration NRDSigma = NrdIntegration(maxNumberOfFramesInFlight);
+NrdIntegration NRDReblur = NrdIntegration(maxNumberOfFramesInFlight);
 
 struct NriInterface
 	: public nri::CoreInterface
@@ -57,15 +58,20 @@ private:
 	void CreateResources();
 	void ReleaseResources();
 	void ReleaseResourcesSigma();
+	void ReleaseResourcesReblur();
 	void ReleaseTextures();
 	void ReleaseTexturesSigma();
-	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
+	void ReleaseTexturesReblur();
+	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
+	void InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
 	void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
 	void Denoise();
 	void DenoiseSigma();
+	void DenoiseReblur();
 	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 	void ReleaseNRD();
 	void ReleaseNRDSigma();
+	void ReleaseNRDReblur();
 
 
 private:
@@ -73,8 +79,10 @@ private:
 	ID3D12Resource* s_D3D12Upload;
 	ID3D12CommandAllocator* s_D3D12CmdAlloc;
 	ID3D12CommandAllocator* s_D3D12CmdAllocSigma;
+	ID3D12CommandAllocator* s_D3D12CmdAllocReblur;
 	ID3D12GraphicsCommandList* s_D3D12CmdList;
 	ID3D12GraphicsCommandList* s_D3D12CmdListSigma;
+	ID3D12GraphicsCommandList* s_D3D12CmdListReblur;
 	IDXGIAdapter1* s_IDXGIAdapter;
 	UINT64 s_D3D12FenceValue = 0;
 	HANDLE s_D3D12Event = NULL;
@@ -82,19 +90,25 @@ private:
 	nri::Device* s_nriDevice;
 	nri::CommandBuffer* s_nriCommandBuffer;
 	nri::CommandBuffer* s_nriCommandBufferSigma;
-	nri::TextureTransitionBarrierDesc textureDescs[5];
+	nri::CommandBuffer* s_nriCommandBufferReblur;
+	nri::TextureTransitionBarrierDesc textureDescs[6];
 	nri::TextureTransitionBarrierDesc textureDescsSigma[5];
+	nri::TextureTransitionBarrierDesc textureDescsReblur[6];
 
 	NrdUserPool userPool;
 	NrdUserPool userPoolSigma;
+	NrdUserPool userPoolReblur;
 	nrd::CommonSettings commonSettings;
 	nrd::RelaxDiffuseSettings relaxSettings;
 	nrd::SigmaSettings sigmaSettings;
+	nrd::ReblurSettings reblurSettings;
 	UnityGraphicsD3D12ResourceState resourceState;
 	UnityGraphicsD3D12ResourceState resourceStateSigma;
+	UnityGraphicsD3D12ResourceState resourceStateReblur;
 
 	nri::TextureD3D12Desc textureDesc_IN_MV;
 	nri::TextureD3D12Desc textureDesc_IN_NORMAL_ROUGHNESS;
+	nri::TextureD3D12Desc textureDesc_IN_BASECOLOR_METALNESS;
 	nri::TextureD3D12Desc textureDesc_IN_VIEWZ;
 	nri::TextureD3D12Desc textureDesc_IN_DIFF_RADIANCE_HITDIST;
 	nri::TextureD3D12Desc textureDesc_OUT_DIFF_RADIANCE_HITDIST;
@@ -105,9 +119,17 @@ private:
 	nri::TextureD3D12Desc textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY;
 	nri::TextureD3D12Desc textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY;
 
+	nri::TextureD3D12Desc textureDesc_Reblur_IN_MV;
+	nri::TextureD3D12Desc textureDesc_Reblur_IN_NORMAL_ROUGHNESS;
+	nri::TextureD3D12Desc textureDesc_Reblur_IN_BASECOLOR_METALNESS;
+	nri::TextureD3D12Desc textureDesc_Reblur_IN_VIEWZ;
+	nri::TextureD3D12Desc textureDesc_Reblur_IN_DIFF_RADIANCE_HITDIST;
+	nri::TextureD3D12Desc textureDesc_Reblur_OUT_DIFF_RADIANCE_HITDIST;
+
 	// Integration textures
 	NrdIntegrationTexture integrationTexture_IN_MV;
 	NrdIntegrationTexture integrationTexture_IN_NORMAL_ROUGHNESS;
+	NrdIntegrationTexture integrationTexture_IN_BASECOLOR_METALNESS;
 	NrdIntegrationTexture integrationTexture_IN_VIEWZ;
 	NrdIntegrationTexture integrationTexture_IN_DIFF_RADIANCE_HITDIST;
 	NrdIntegrationTexture integrationTexture_OUT_DIFF_RADIANCE_HITDIST;
@@ -118,15 +140,25 @@ private:
 	NrdIntegrationTexture integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY;
 	NrdIntegrationTexture integrationTexture_Sigma_OUT_SHADOW_TRANSLUCENCY;
 
+	NrdIntegrationTexture integrationTexture_Reblur_IN_MV;
+	NrdIntegrationTexture integrationTexture_Reblur_IN_NORMAL_ROUGHNESS;
+	NrdIntegrationTexture integrationTexture_Reblur_IN_BASECOLOR_METALNESS;
+	NrdIntegrationTexture integrationTexture_Reblur_IN_VIEWZ;
+	NrdIntegrationTexture integrationTexture_Reblur_IN_DIFF_RADIANCE_HITDIST;
+	NrdIntegrationTexture integrationTexture_Reblur_OUT_DIFF_RADIANCE_HITDIST;
+
 	void* _OUT_DIFF_RADIANCE_HITDIST;
 	void* _OUT_SHADOW_TRANSLUCENCY;
+	void* _OUT_Reblur;
 
 
 	bool nrdInitalized = false;
 	bool nrdInitalizedSigma = false;
+	bool nrdInitalizedReblur = false;
 
 	bool nrdCmdListPopulated = false;
 	bool nrdCmdListPopulatedSigma = false;
+	bool nrdCmdListPopulatedReblur = false;
 
 	float m_viewToClipMatrixPrev[16];
 	float m_worldToViewMatrixPrev[16];
@@ -150,23 +182,30 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, s_D3D12Upload(NULL)
 	, s_D3D12CmdAlloc(NULL)
 	, s_D3D12CmdAllocSigma(NULL)
+	, s_D3D12CmdAllocReblur(NULL)
 	, s_D3D12CmdList(NULL)
 	, s_D3D12CmdListSigma(NULL)
+	, s_D3D12CmdListReblur(NULL)
 	, s_IDXGIAdapter(NULL)
 	, s_D3D12FenceValue(0)
 	, s_D3D12Event(NULL)
 	, s_nriDevice(NULL)
 	, s_nriCommandBuffer(NULL)
 	, s_nriCommandBufferSigma(NULL)
+	, s_nriCommandBufferReblur(NULL)
 	, textureDescs()
 	, textureDescsSigma()
+	, textureDescsReblur()
 	, userPool()
 	, userPoolSigma()
+	, userPoolReblur()
 	, commonSettings()
 	, relaxSettings()
 	, sigmaSettings()
+	, reblurSettings()
 	, resourceState()
 	, resourceStateSigma()
+	, resourceStateReblur()
 	, textureDesc_IN_MV()
 	, textureDesc_IN_NORMAL_ROUGHNESS()
 	, textureDesc_IN_VIEWZ()
@@ -177,6 +216,11 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, textureDesc_Sigma_IN_SHADOWDATA()
 	, textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY()
 	, textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY()
+	, textureDesc_Reblur_IN_MV()
+	, textureDesc_Reblur_IN_NORMAL_ROUGHNESS()
+	, textureDesc_Reblur_IN_VIEWZ()
+	, textureDesc_Reblur_IN_DIFF_RADIANCE_HITDIST()
+	, textureDesc_Reblur_OUT_DIFF_RADIANCE_HITDIST()
 	, integrationTexture_IN_MV()
 	, integrationTexture_IN_NORMAL_ROUGHNESS()
 	, integrationTexture_IN_VIEWZ()
@@ -187,6 +231,11 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, integrationTexture_Sigma_IN_SHADOWDATA()
 	, integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY()
 	, integrationTexture_Sigma_OUT_SHADOW_TRANSLUCENCY()
+	, integrationTexture_Reblur_IN_MV()
+	, integrationTexture_Reblur_IN_NORMAL_ROUGHNESS()
+	, integrationTexture_Reblur_IN_VIEWZ()
+	, integrationTexture_Reblur_IN_DIFF_RADIANCE_HITDIST()
+	, integrationTexture_Reblur_OUT_DIFF_RADIANCE_HITDIST()
 	, _OUT_DIFF_RADIANCE_HITDIST(NULL)
 	, _OUT_SHADOW_TRANSLUCENCY(NULL)
 	, m_viewToClipMatrixPrev()
@@ -215,6 +264,12 @@ void RenderAPI_D3D12::CreateResources()
 	hr = device->CreateCommandList(kNodeMask, D3D12_COMMAND_LIST_TYPE_DIRECT, s_D3D12CmdAllocSigma, nullptr, IID_PPV_ARGS(&s_D3D12CmdListSigma));
 	if (FAILED(hr)) OutputDebugStringA("Failed to CreateCommandList.\n");
 	s_D3D12CmdListSigma->Close();
+
+	hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&s_D3D12CmdAllocReblur));
+	if (FAILED(hr)) OutputDebugStringA("Failed to CreateCommandAllocator.\n");
+	hr = device->CreateCommandList(kNodeMask, D3D12_COMMAND_LIST_TYPE_DIRECT, s_D3D12CmdAllocReblur, nullptr, IID_PPV_ARGS(&s_D3D12CmdListReblur));
+	if (FAILED(hr)) OutputDebugStringA("Failed to CreateCommandList.\n");
+	s_D3D12CmdListReblur->Close();
 
 	// Fence
 	s_D3D12FenceValue = 0;
@@ -265,7 +320,7 @@ void RenderAPI_D3D12::CreateResources()
 
 
 // INPUTS - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST,
-void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
 {
 	// Release resources before recreating
 	if (nrdInitalized)
@@ -319,23 +374,29 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	textureDescs[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[1].nextLayout = nri::TextureLayout::GENERAL;
 
-	textureDesc_IN_VIEWZ = {};
-	textureDesc_IN_VIEWZ.d3d12Resource = (ID3D12Resource*)IN_VIEWZ;
-	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_IN_VIEWZ, (nri::Texture*&)textureDescs[2].texture);
+	textureDesc_IN_BASECOLOR_METALNESS = {};
+	textureDesc_IN_BASECOLOR_METALNESS.d3d12Resource = (ID3D12Resource*)IN_BASECOLOR_METALNESS;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_IN_BASECOLOR_METALNESS, (nri::Texture*&)textureDescs[2].texture);
 	textureDescs[2].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[2].nextLayout = nri::TextureLayout::GENERAL;
 
-	textureDesc_IN_DIFF_RADIANCE_HITDIST = {};
-	textureDesc_IN_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)IN_DIFF_RADIANCE_HITDIST;
-	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_IN_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[3].texture);
+	textureDesc_IN_VIEWZ = {};
+	textureDesc_IN_VIEWZ.d3d12Resource = (ID3D12Resource*)IN_VIEWZ;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_IN_VIEWZ, (nri::Texture*&)textureDescs[3].texture);
 	textureDescs[3].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[3].nextLayout = nri::TextureLayout::GENERAL;
 
-	textureDesc_OUT_DIFF_RADIANCE_HITDIST = {};
-	textureDesc_OUT_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)OUT_DIFF_RADIANCE_HITDIST;
-	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_OUT_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[4].texture);
+	textureDesc_IN_DIFF_RADIANCE_HITDIST = {};
+	textureDesc_IN_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)IN_DIFF_RADIANCE_HITDIST;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_IN_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[4].texture);
 	textureDescs[4].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescs[4].nextLayout = nri::TextureLayout::GENERAL;
+
+	textureDesc_OUT_DIFF_RADIANCE_HITDIST = {};
+	textureDesc_OUT_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)OUT_DIFF_RADIANCE_HITDIST;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_OUT_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[5].texture);
+	textureDescs[5].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[5].nextLayout = nri::TextureLayout::GENERAL;
 
 
 	integrationTexture_IN_MV.format = nri::Format::RGBA16_SFLOAT;
@@ -343,15 +404,18 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	
 	integrationTexture_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA16_SFLOAT;
 	integrationTexture_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescs[1];
+
+	integrationTexture_IN_BASECOLOR_METALNESS.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_IN_BASECOLOR_METALNESS.subresourceStates = &textureDescs[2];
 	
 	integrationTexture_IN_VIEWZ.format = nri::Format::RGBA16_SFLOAT;
-	integrationTexture_IN_VIEWZ.subresourceStates = &textureDescs[2];
+	integrationTexture_IN_VIEWZ.subresourceStates = &textureDescs[3];
 	
 	integrationTexture_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA16_SFLOAT;
-	integrationTexture_IN_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[3];
+	integrationTexture_IN_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
 	
 	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA16_SFLOAT;
-	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
+	integrationTexture_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[5];
 
 	_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
 
@@ -364,6 +428,7 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 		// applying remapping if necessary. Unused slots will be {nullptr, nri::Format::UNKNOWN}
 		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_MV, integrationTexture_IN_MV);
 		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_IN_NORMAL_ROUGHNESS);
+		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_BASECOLOR_METALNESS, integrationTexture_IN_NORMAL_ROUGHNESS);
 		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_VIEWZ, integrationTexture_IN_VIEWZ);
 		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST, integrationTexture_IN_DIFF_RADIANCE_HITDIST);
 		NrdIntegration_SetResource(userPool, nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST, integrationTexture_OUT_DIFF_RADIANCE_HITDIST);
@@ -374,7 +439,7 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	//  - for the first time use defaults
 	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
 	commonSettings = {};
-	commonSettings.isBaseColorMetalnessAvailable = false;
+	commonSettings.isBaseColorMetalnessAvailable = true;
 	commonSettings.isMotionVectorInWorldSpace = true;
 
 	// Set settings for each method in the NRD instance
@@ -399,6 +464,156 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 }
 
 
+// INPUTS - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST,
+void RenderAPI_D3D12::InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+{
+	// Release resources before recreating
+	if (nrdInitalizedReblur)
+	{
+		ReleaseNRDReblur();
+	}
+
+	// Initialize NRD
+	const nrd::MethodDesc methodDescs[] =
+	{
+		// Put neeeded methods here, like:
+		{ nrd::Method::REBLUR_DIFFUSE, renderWidth, renderHeight }
+
+	};
+
+	nrd::DenoiserCreationDesc denoiserCreationDesc = {};
+	denoiserCreationDesc.requestedMethods = methodDescs;
+	denoiserCreationDesc.requestedMethodsNum = 1;
+
+	bool result = NRDReblur.Initialize(denoiserCreationDesc, *s_nriDevice, NRI, NRI);
+
+
+	///
+
+	_renderWidth = renderWidth;
+	_renderHeight = renderHeight;
+
+
+	// Wrap pointers
+
+	// Wrap the command buffer
+	nri::CommandBufferD3D12Desc commandBufferDesc = {};
+	commandBufferDesc.d3d12CommandList = (ID3D12GraphicsCommandList*)s_D3D12CmdListReblur;
+
+	// Not needed for NRD integration layer, but needed for NRI validation layer
+	commandBufferDesc.d3d12CommandAllocator = (ID3D12CommandAllocator*)s_D3D12CmdAllocReblur;
+
+	//nri::CommandBuffer* nriCommandBuffer = nullptr;
+	NRI.CreateCommandBufferD3D12(*s_nriDevice, commandBufferDesc, s_nriCommandBufferReblur);
+
+	// Wrap required textures (better do it only once on initialization)
+	textureDesc_Reblur_IN_MV = {};
+	textureDesc_Reblur_IN_MV.d3d12Resource = (ID3D12Resource*)IN_MV;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Reblur_IN_MV, (nri::Texture*&)textureDescs[0].texture);
+	textureDescs[0].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[0].nextLayout = nri::TextureLayout::GENERAL;
+
+	textureDesc_Reblur_IN_NORMAL_ROUGHNESS = {};
+	textureDesc_Reblur_IN_NORMAL_ROUGHNESS.d3d12Resource = (ID3D12Resource*)IN_NORMAL_ROUGHNESS;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Reblur_IN_NORMAL_ROUGHNESS, (nri::Texture*&)textureDescs[1].texture);
+	textureDescs[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[1].nextLayout = nri::TextureLayout::GENERAL;
+
+	textureDesc_Reblur_IN_BASECOLOR_METALNESS = {};
+	textureDesc_Reblur_IN_BASECOLOR_METALNESS.d3d12Resource = (ID3D12Resource*)IN_BASECOLOR_METALNESS;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Reblur_IN_BASECOLOR_METALNESS, (nri::Texture*&)textureDescs[2].texture);
+	textureDescs[2].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[2].nextLayout = nri::TextureLayout::GENERAL;
+
+	textureDesc_Reblur_IN_VIEWZ = {};
+	textureDesc_Reblur_IN_VIEWZ.d3d12Resource = (ID3D12Resource*)IN_VIEWZ;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Reblur_IN_VIEWZ, (nri::Texture*&)textureDescs[3].texture);
+	textureDescs[3].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[3].nextLayout = nri::TextureLayout::GENERAL;
+
+	textureDesc_Reblur_IN_DIFF_RADIANCE_HITDIST = {};
+	textureDesc_Reblur_IN_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)IN_DIFF_RADIANCE_HITDIST;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Reblur_IN_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[4].texture);
+	textureDescs[4].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[4].nextLayout = nri::TextureLayout::GENERAL;
+
+	textureDesc_Reblur_OUT_DIFF_RADIANCE_HITDIST = {};
+	textureDesc_Reblur_OUT_DIFF_RADIANCE_HITDIST.d3d12Resource = (ID3D12Resource*)OUT_DIFF_RADIANCE_HITDIST;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Reblur_OUT_DIFF_RADIANCE_HITDIST, (nri::Texture*&)textureDescs[5].texture);
+	textureDescs[5].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescs[5].nextLayout = nri::TextureLayout::GENERAL;
+
+
+	integrationTexture_Reblur_IN_MV.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_Reblur_IN_MV.subresourceStates = &textureDescs[0];
+
+	integrationTexture_Reblur_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_Reblur_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescs[1];
+
+	integrationTexture_Reblur_IN_BASECOLOR_METALNESS.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_Reblur_IN_BASECOLOR_METALNESS.subresourceStates = &textureDescs[2];
+
+	integrationTexture_Reblur_IN_VIEWZ.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_Reblur_IN_VIEWZ.subresourceStates = &textureDescs[3];
+
+	integrationTexture_Reblur_IN_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_Reblur_IN_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[4];
+
+	integrationTexture_Reblur_OUT_DIFF_RADIANCE_HITDIST.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_Reblur_OUT_DIFF_RADIANCE_HITDIST.subresourceStates = &textureDescs[5];
+
+	_OUT_Reblur = OUT_DIFF_RADIANCE_HITDIST;
+
+
+
+	// Fill up the user pool
+	userPoolReblur = {};
+	{
+		// Fill only required "in-use" inputs and outputs in appropriate slots using entryDescs & entryFormat,
+		// applying remapping if necessary. Unused slots will be {nullptr, nri::Format::UNKNOWN}
+		NrdIntegration_SetResource(userPoolReblur, nrd::ResourceType::IN_MV, integrationTexture_IN_MV);
+		NrdIntegration_SetResource(userPoolReblur, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_IN_NORMAL_ROUGHNESS);
+		NrdIntegration_SetResource(userPoolReblur, nrd::ResourceType::IN_BASECOLOR_METALNESS, integrationTexture_IN_NORMAL_ROUGHNESS);
+		NrdIntegration_SetResource(userPoolReblur, nrd::ResourceType::IN_VIEWZ, integrationTexture_IN_VIEWZ);
+		NrdIntegration_SetResource(userPoolReblur, nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST, integrationTexture_IN_DIFF_RADIANCE_HITDIST);
+		NrdIntegration_SetResource(userPoolReblur, nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST, integrationTexture_OUT_DIFF_RADIANCE_HITDIST);
+	};
+
+
+	// Populate common settings
+	//  - for the first time use defaults
+	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
+	commonSettings = {};
+	commonSettings.isBaseColorMetalnessAvailable = true;
+	commonSettings.isMotionVectorInWorldSpace = true;
+	commonSettings.motionVectorScale[0] = 1.0f;
+	commonSettings.motionVectorScale[1] = 1.0f;
+	commonSettings.motionVectorScale[2] = 1.0f;
+	
+
+	// Set settings for each method in the NRD instance
+	reblurSettings = {};
+	reblurSettings.enableAntiFirefly = false;
+	reblurSettings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
+
+
+	NRDReblur.SetMethodSettings(nrd::Method::REBLUR_DIFFUSE, &relaxSettings);
+
+
+
+	// We inform Unity that we expect this resource to be in D3D12_RESOURCE_STATE_COPY_DEST state,
+	// and because we do not barrier it ourselves, we tell Unity that no changes are done on our command list.
+	resourceStateReblur = {};
+	resourceStateReblur.resource = (ID3D12Resource*)_OUT_Reblur;
+	resourceStateReblur.expected = D3D12_RESOURCE_STATE_COPY_DEST;
+	resourceStateReblur.current = D3D12_RESOURCE_STATE_COPY_DEST;
+
+
+	nrdInitalizedReblur = true;
+}
+
+
+
 // INPUTS - IN_NORMAL_ROUGHNESS, IN_SHADOWDATA, IN_SHADOW_TRANSLUCENCY, OUT_SHADOW_TRANSLUCENCY,
 void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
 {
@@ -412,7 +627,7 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 	const nrd::MethodDesc methodDescs[] =
 	{
 		// Put neeeded methods here, like:
-		{ nrd::Method::SIGMA_SHADOW_TRANSLUCENCY, renderWidth, renderHeight }
+		{ nrd::Method::SIGMA_SHADOW, renderWidth, renderHeight }
 	};
 
 	nrd::DenoiserCreationDesc denoiserCreationDesc = {};
@@ -515,7 +730,7 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 	sigmaSettings = {};
 
 
-	NRDSigma.SetMethodSettings(nrd::Method::SIGMA_SHADOW_TRANSLUCENCY, &sigmaSettings);
+	NRDSigma.SetMethodSettings(nrd::Method::SIGMA_SHADOW, &sigmaSettings);
 
 
 
@@ -567,6 +782,24 @@ void RenderAPI_D3D12::DenoiseSigma()
 }
 
 
+void RenderAPI_D3D12::DenoiseReblur()
+{
+	if (nrdInitalizedReblur && !nrdCmdListPopulatedReblur)
+	{
+		s_D3D12CmdListReblur->Reset(s_D3D12CmdAllocReblur, NULL);
+
+		// Better use "true" if resources are not changing between frames (i.e. are not suballocated from a heap)
+		NRD.Denoise(commonSettings.frameIndex, *s_nriCommandBufferReblur, commonSettings, userPoolReblur, true);
+
+
+		s_D3D12CmdListReblur->Close();
+		nrdCmdListPopulatedReblur = true;
+	}
+
+	s_D3D12->ExecuteCommandList(s_D3D12CmdListReblur, 1, &resourceStateReblur);
+}
+
+
 void RenderAPI_D3D12::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
 {
 	commonSettings.frameIndex = frameIndex;
@@ -588,7 +821,7 @@ void RenderAPI_D3D12::SetMatrix(int frameIndex, float _viewToClipMatrix[16], flo
 void RenderAPI_D3D12::ReleaseTextures()
 {
 	// Better do it only once on shutdown
-	for (uint32_t i = 0; i < 5; i++)
+	for (uint32_t i = 0; i < 6; i++)
 	{
 		if (textureDescs[i].texture != nullptr) NRI.DestroyTexture(*(nri::Texture*&)textureDescs[i].texture);
 	}
@@ -609,6 +842,19 @@ void RenderAPI_D3D12::ReleaseTexturesSigma()
 }
 
 
+void RenderAPI_D3D12::ReleaseTexturesReblur()
+{
+	// Better do it only once on shutdown
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		if (textureDescsReblur[i].texture != nullptr) NRI.DestroyTexture(*(nri::Texture*&)textureDescsReblur[i].texture);
+	}
+
+	_OUT_Reblur = nullptr;
+}
+
+
+
 void RenderAPI_D3D12::ReleaseResources()
 {
 	SAFE_RELEASE(s_D3D12Upload);
@@ -618,7 +864,7 @@ void RenderAPI_D3D12::ReleaseResources()
 	SAFE_RELEASE(s_D3D12CmdAlloc);
 	SAFE_RELEASE(s_IDXGIAdapter);
 
-	//ReleaseTextures();
+	ReleaseTextures();
 	ReleaseNRD();
 
 	//NRI.DestroyDevice(*s_nriDevice);
@@ -634,12 +880,26 @@ void RenderAPI_D3D12::ReleaseResourcesSigma()
 	SAFE_RELEASE(s_D3D12CmdListSigma);
 	SAFE_RELEASE(s_D3D12CmdAllocSigma);
 	
-	//ReleaseTextures();
+	ReleaseTexturesSigma();
 	ReleaseNRDSigma();
 
 
 	nrdInitalizedSigma = false;
 	nrdCmdListPopulatedSigma = false;
+}
+
+
+void RenderAPI_D3D12::ReleaseResourcesReblur()
+{
+	SAFE_RELEASE(s_D3D12CmdListReblur);
+	SAFE_RELEASE(s_D3D12CmdAllocReblur);
+
+	ReleaseTexturesReblur();
+	ReleaseNRDReblur();
+
+
+	nrdInitalizedReblur = false;
+	nrdCmdListPopulatedReblur = false;
 }
 
 
@@ -650,7 +910,7 @@ void RenderAPI_D3D12::ReleaseNRD()
 	{
 		if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
 
-		ReleaseTextures();
+		//ReleaseTextures();
 		NRD.Destroy();
 
 		nrdInitalized = false;
@@ -666,11 +926,27 @@ void RenderAPI_D3D12::ReleaseNRDSigma()
 	{
 		if (s_nriCommandBufferSigma != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBufferSigma);
 
-		ReleaseTexturesSigma();
+		//ReleaseTexturesSigma();
 		NRDSigma.Destroy();
 
 		nrdInitalizedSigma = false;
 		nrdCmdListPopulatedSigma = false;
+	}
+}
+
+
+void RenderAPI_D3D12::ReleaseNRDReblur()
+{
+	// Also NRD needs to be recreated on "resize"
+	if (nrdInitalizedReblur)
+	{
+		if (s_nriCommandBufferReblur != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
+
+		//ReleaseTexturesReblur();
+		NRDReblur.Destroy();
+
+		nrdInitalizedReblur = false;
+		nrdCmdListPopulatedReblur = false;
 	}
 }
 

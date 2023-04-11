@@ -12,20 +12,26 @@
 // Gameworks
 #include "../NRI/_NRI_SDK/Include/NRI.h"
 
-bool _NRDInitiazlized;
-bool _NRDInitiazlizedSigma;
+bool _NRDInitialized;
+bool _NRDInitializedSigma;
+bool _NRDInitializedReblur;
 
 int _renderWidth;
 int _renderWidthSigma;
+int _renderWidthReblur;
 int _renderHeight;
 int _renderHeightSigma;
+int _renderHeightReblur;
 int _prevRenderWidth;
 int _prevRenderWidthSigma;
+int _prevRenderWidthReblur;
 int _prevRenderHeight;
 int _prevRenderHeightSigma;
+int _prevRenderHeightReblur;
 
 void* _IN_MV;
 void* _IN_NORMAL_ROUGHNESS;
+void* _IN_BASECOLOR_METALNESS;
 void* _IN_VIEWZ;
 void* _IN_DIFF_RADIANCE_HITDIST;
 void* _OUT_DIFF_RADIANCE_HITDIST;
@@ -35,6 +41,13 @@ void* _Sigma_IN_NORMAL_ROUGHNESS;
 void* _Sigma_IN_SHADOWDATA;
 void* _Sigma_IN_SHADOW_TRANSLUCENCY;
 void* _Sigma_OUT_SHADOW_TRANSLUCENCY;
+
+void* _Reblur_IN_MV;
+void* _Reblur_IN_NORMAL_ROUGHNESS;
+void* _Reblur_IN_BASECOLOR_METALNESS;
+void* _Reblur_IN_VIEWZ;
+void* _Reblur_IN_DIFF_RADIANCE_HITDIST;
+void* _Reblur_OUT_DIFF_RADIANCE_HITDIST;
 
 
 // --------------------------------------------------------------------------
@@ -90,7 +103,7 @@ void ClearLocalVars()
 	_IN_VIEWZ = nullptr;
 	_IN_DIFF_RADIANCE_HITDIST = nullptr;
 	_OUT_DIFF_RADIANCE_HITDIST = nullptr;
-	_NRDInitiazlized = false;
+	_NRDInitialized = false;
 }
 
 
@@ -102,7 +115,20 @@ void ClearLocalVarsSigma()
 	_Sigma_IN_SHADOWDATA = nullptr;
 	_Sigma_IN_SHADOW_TRANSLUCENCY = nullptr;
 	_Sigma_OUT_SHADOW_TRANSLUCENCY = nullptr;
-	_NRDInitiazlizedSigma = false;
+	_NRDInitializedSigma = false;
+}
+
+
+void ClearLocalVarsReblur()
+{
+	_renderWidthReblur = 0;
+	_renderHeightReblur = 0;
+	_Reblur_IN_MV = nullptr;
+	_Reblur_IN_NORMAL_ROUGHNESS = nullptr;
+	_Reblur_IN_VIEWZ = nullptr;
+	_Reblur_IN_DIFF_RADIANCE_HITDIST = nullptr;
+	_Reblur_OUT_DIFF_RADIANCE_HITDIST = nullptr;
+	_NRDInitializedReblur = false;
 }
 
 // --------------------------------------------------------------------------
@@ -137,6 +163,8 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 		s_DeviceType = kUnityGfxRendererNull;
 
 		ClearLocalVars();
+		ClearLocalVarsSigma();
+		ClearLocalVarsReblur();
 	}
 }
 
@@ -148,7 +176,7 @@ static void UNITY_INTERFACE_API OnExecuteEvent(int eventID)
 	if (s_CurrentAPI == NULL)
 		return;
 
-	if (_NRDInitiazlized)
+	if (_NRDInitialized)
 	{
 		s_CurrentAPI->Denoise();
 	}
@@ -161,9 +189,22 @@ static void UNITY_INTERFACE_API OnExecuteEventSigma(int eventID)
 	if (s_CurrentAPI == NULL)
 		return;
 
-	if (_NRDInitiazlizedSigma)
+	if (_NRDInitializedSigma)
 	{
 		s_CurrentAPI->DenoiseSigma();
+	}
+}
+
+
+static void UNITY_INTERFACE_API OnExecuteEventReblur(int eventID)
+{
+	// Unknown / unsupported graphics device type, or we've not set the params? Do nothing
+	if (s_CurrentAPI == NULL)
+		return;
+
+	if (_NRDInitializedReblur)
+	{
+		s_CurrentAPI->DenoiseReblur();
 	}
 }
 
@@ -171,7 +212,7 @@ static void UNITY_INTERFACE_API OnExecuteEventSigma(int eventID)
 // External functions
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 {
-	if (_NRDInitiazlized && s_CurrentAPI != nullptr)
+	if (_NRDInitialized && s_CurrentAPI != nullptr)
 	{
 		s_CurrentAPI->ReleaseNRD();
 
@@ -182,7 +223,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResourcesSigma()
 {
-	if (_NRDInitiazlizedSigma && s_CurrentAPI != nullptr)
+	if (_NRDInitializedSigma && s_CurrentAPI != nullptr)
 	{
 		s_CurrentAPI->ReleaseNRDSigma();
 
@@ -191,9 +232,20 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResourcesSi
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResourcesReblur()
 {
-	if ((renderWidth != _prevRenderWidth || renderHeight != _prevRenderHeight) && _NRDInitiazlized)
+	if (_NRDInitializedReblur && s_CurrentAPI != nullptr)
+	{
+		s_CurrentAPI->ReleaseNRDReblur();
+
+		ClearLocalVarsReblur();
+	}
+}
+
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+{
+	if ((renderWidth != _prevRenderWidth || renderHeight != _prevRenderHeight) && _NRDInitialized)
 	{
 		NRDReleaseResources();
 
@@ -210,10 +262,11 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitialize(int ren
 		IN_VIEWZ != nullptr &&
 		IN_DIFF_RADIANCE_HITDIST != nullptr &&
 		OUT_DIFF_RADIANCE_HITDIST != nullptr)*/
-	if (!_NRDInitiazlized)
+	if (!_NRDInitialized)
 	{
 		_IN_MV = IN_MV;
 		_IN_NORMAL_ROUGHNESS = IN_NORMAL_ROUGHNESS;
+		_IN_BASECOLOR_METALNESS = IN_BASECOLOR_METALNESS;
 		_IN_VIEWZ = IN_VIEWZ;
 		_IN_DIFF_RADIANCE_HITDIST = IN_DIFF_RADIANCE_HITDIST;
 		_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
@@ -221,15 +274,15 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitialize(int ren
 		_renderWidth = renderWidth;
 		_renderHeight = renderHeight;
 
-		s_CurrentAPI->Initialize(_renderWidth, _renderHeight, _IN_MV, _IN_NORMAL_ROUGHNESS, _IN_VIEWZ, _IN_DIFF_RADIANCE_HITDIST, _OUT_DIFF_RADIANCE_HITDIST);
-		_NRDInitiazlized = true;
+		s_CurrentAPI->Initialize(_renderWidth, _renderHeight, _IN_MV, _IN_NORMAL_ROUGHNESS, _IN_BASECOLOR_METALNESS, _IN_VIEWZ, _IN_DIFF_RADIANCE_HITDIST, _OUT_DIFF_RADIANCE_HITDIST);
+		_NRDInitialized = true;
 	}
 }
 
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
 {
-	if ((renderWidth != _prevRenderWidthSigma || renderHeight != _prevRenderHeightSigma) && _NRDInitiazlized)
+	if ((renderWidth != _prevRenderWidthSigma || renderHeight != _prevRenderHeightSigma) && _NRDInitialized)
 	{
 		NRDReleaseResourcesSigma();
 
@@ -245,7 +298,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitializeSigma(in
 		IN_SHADOWDATA != nullptr &&
 		IN_SHADOW_TRANSLUCENCY != nullptr &&
 		OUT_SHADOW_TRANSLUCENCY != nullptr)*/
-	if (!_NRDInitiazlizedSigma)
+	if (!_NRDInitializedSigma)
 	{
 		_Sigma_IN_MV = IN_MV;
 		_Sigma_IN_NORMAL_ROUGHNESS = IN_NORMAL_ROUGHNESS;
@@ -257,7 +310,44 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitializeSigma(in
 		_renderHeightSigma = renderHeight;
 
 		s_CurrentAPI->InitializeSigma(_renderWidth, _renderHeight, _Sigma_IN_MV, _Sigma_IN_NORMAL_ROUGHNESS, _Sigma_IN_SHADOWDATA, _Sigma_IN_SHADOW_TRANSLUCENCY, _Sigma_OUT_SHADOW_TRANSLUCENCY);
-		_NRDInitiazlizedSigma = true;
+		_NRDInitializedSigma = true;
+	}
+}
+
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+{
+	if ((renderWidth != _prevRenderWidthReblur || renderHeight != _prevRenderHeightReblur) && _NRDInitializedReblur)
+	{
+		NRDReleaseResourcesReblur();
+
+		_prevRenderWidthReblur = renderWidth;
+		_prevRenderHeightReblur = renderHeight;
+	}
+
+
+	/*if (!_NRDInitiazlized &&
+		_renderWidth > 0 &&
+		_renderHeight > 0 &&
+		IN_MV != nullptr &&
+		IN_NORMAL_ROUGHNESS != nullptr &&
+		IN_VIEWZ != nullptr &&
+		IN_DIFF_RADIANCE_HITDIST != nullptr &&
+		OUT_DIFF_RADIANCE_HITDIST != nullptr)*/
+	if (!_NRDInitializedReblur)
+	{
+		_Reblur_IN_MV = IN_MV;
+		_Reblur_IN_NORMAL_ROUGHNESS = IN_NORMAL_ROUGHNESS;
+		_Reblur_IN_BASECOLOR_METALNESS = IN_BASECOLOR_METALNESS;
+		_Reblur_IN_VIEWZ = IN_VIEWZ;
+		_Reblur_IN_DIFF_RADIANCE_HITDIST = IN_DIFF_RADIANCE_HITDIST;
+		_Reblur_OUT_DIFF_RADIANCE_HITDIST = OUT_DIFF_RADIANCE_HITDIST;
+
+		_renderWidth = renderWidth;
+		_renderHeight = renderHeight;
+
+		s_CurrentAPI->Initialize(_renderWidth, _renderHeight, _Reblur_IN_MV, _Reblur_IN_NORMAL_ROUGHNESS, _Reblur_IN_BASECOLOR_METALNESS, _Reblur_IN_VIEWZ, _Reblur_IN_DIFF_RADIANCE_HITDIST, _Reblur_OUT_DIFF_RADIANCE_HITDIST);
+		_NRDInitializedReblur = true;
 	}
 }
 
@@ -277,4 +367,9 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDExe
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDExecuteSigma()
 {
 	return OnExecuteEventSigma;
+}
+
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDExecuteReblur()
+{
+	return OnExecuteEventReblur;
 }

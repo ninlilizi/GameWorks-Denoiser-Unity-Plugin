@@ -26,13 +26,16 @@ public:
 	virtual void ReleaseResourcesSigma() = 0;
 
 	// Initialize NDR
-	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
+	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
 	virtual void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY) = 0;
+	virtual void InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
 	virtual void Denoise() = 0;
 	virtual void DenoiseSigma() = 0;
+	virtual void DenoiseReblur() = 0;
 	virtual void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]) = 0;
 	virtual void ReleaseNRD() = 0;
 	virtual void ReleaseNRDSigma() = 0;
+	virtual void ReleaseNRDReblur() = 0;
 };
 
 

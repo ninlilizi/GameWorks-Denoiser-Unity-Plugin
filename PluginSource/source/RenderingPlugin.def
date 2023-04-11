@@ -9,9 +9,12 @@ EXPORTS
    NRDSetMatrix
    NRDReleaseResources
    NRDReleaseResourcesSigma
+   NRDReleaseResourcesReblur
    NRDInitialize
    NRDInitializeSigma
+   NRDInitializeReblur
    NRDExecute
    NRDExecuteSigma
+   NRDExecuteReblur
    
    
