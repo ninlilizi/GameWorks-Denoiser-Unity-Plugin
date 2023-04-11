@@ -60,9 +60,10 @@ private:
 	void ReleaseTextures();
 	void ReleaseTexturesSigma();
 	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
-	void InitializeSigma(int renderWidth, int renderHeight, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
-	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void DenoiseSigma(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
+	void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
+	void Denoise();
+	void DenoiseSigma();
+	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 	void ReleaseNRD();
 	void ReleaseNRDSigma();
 
@@ -82,7 +83,7 @@ private:
 	nri::CommandBuffer* s_nriCommandBuffer;
 	nri::CommandBuffer* s_nriCommandBufferSigma;
 	nri::TextureTransitionBarrierDesc textureDescs[5];
-	nri::TextureTransitionBarrierDesc textureDescsSigma[4];
+	nri::TextureTransitionBarrierDesc textureDescsSigma[5];
 
 	NrdUserPool userPool;
 	NrdUserPool userPoolSigma;
@@ -98,6 +99,7 @@ private:
 	nri::TextureD3D12Desc textureDesc_IN_DIFF_RADIANCE_HITDIST;
 	nri::TextureD3D12Desc textureDesc_OUT_DIFF_RADIANCE_HITDIST;
 
+	nri::TextureD3D12Desc textureDesc_Sigma_IN_MV;
 	nri::TextureD3D12Desc textureDesc_Sigma_IN_NORMAL_ROUGHNESS;
 	nri::TextureD3D12Desc textureDesc_Sigma_IN_SHADOWDATA;
 	nri::TextureD3D12Desc textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY;
@@ -110,6 +112,7 @@ private:
 	NrdIntegrationTexture integrationTexture_IN_DIFF_RADIANCE_HITDIST;
 	NrdIntegrationTexture integrationTexture_OUT_DIFF_RADIANCE_HITDIST;
 
+	NrdIntegrationTexture integrationTexture_Sigma_IN_MV;
 	NrdIntegrationTexture integrationTexture_Sigma_IN_NORMAL_ROUGHNESS;
 	NrdIntegrationTexture integrationTexture_Sigma_IN_SHADOWDATA;
 	NrdIntegrationTexture integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY;
@@ -121,6 +124,9 @@ private:
 
 	bool nrdInitalized = false;
 	bool nrdInitalizedSigma = false;
+
+	bool nrdCmdListPopulated = false;
+	bool nrdCmdListPopulatedSigma = false;
 
 	float m_viewToClipMatrixPrev[16];
 	float m_worldToViewMatrixPrev[16];
@@ -166,6 +172,7 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, textureDesc_IN_VIEWZ()
 	, textureDesc_IN_DIFF_RADIANCE_HITDIST()
 	, textureDesc_OUT_DIFF_RADIANCE_HITDIST()
+	, textureDesc_Sigma_IN_MV()
 	, textureDesc_Sigma_IN_NORMAL_ROUGHNESS()
 	, textureDesc_Sigma_IN_SHADOWDATA()
 	, textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY()
@@ -175,6 +182,7 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	, integrationTexture_IN_VIEWZ()
 	, integrationTexture_IN_DIFF_RADIANCE_HITDIST()
 	, integrationTexture_OUT_DIFF_RADIANCE_HITDIST()
+	, integrationTexture_Sigma_IN_MV()
 	, integrationTexture_Sigma_IN_NORMAL_ROUGHNESS()
 	, integrationTexture_Sigma_IN_SHADOWDATA()
 	, integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY()
@@ -270,6 +278,7 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	{
 		// Put neeeded methods here, like:
 		{ nrd::Method::RELAX_DIFFUSE, renderWidth, renderHeight }
+
 	};
 
 	nrd::DenoiserCreationDesc denoiserCreationDesc = {};
@@ -389,13 +398,14 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	nrdInitalized = true;
 }
 
-// INPUTS - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST,
-void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
+
+// INPUTS - IN_NORMAL_ROUGHNESS, IN_SHADOWDATA, IN_SHADOW_TRANSLUCENCY, OUT_SHADOW_TRANSLUCENCY,
+void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
 {
 	// Release resources before recreating
 	if (nrdInitalizedSigma)
 	{
-		ReleaseNRD();
+		ReleaseNRDSigma();
 	}
 
 	// Initialize NRD
@@ -431,42 +441,51 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 	NRI.CreateCommandBufferD3D12(*s_nriDevice, commandBufferDesc, s_nriCommandBufferSigma);
 
 	// Wrap required textures (better do it only once on initialization)
-	textureDesc_Sigma_IN_NORMAL_ROUGHNESS = {};
-	textureDesc_Sigma_IN_NORMAL_ROUGHNESS.d3d12Resource = (ID3D12Resource*)IN_NORMAL_ROUGHNESS;
-	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_IN_NORMAL_ROUGHNESS, (nri::Texture*&)textureDescsSigma[0].texture);
+	textureDesc_Sigma_IN_MV = {};
+	textureDesc_Sigma_IN_MV.d3d12Resource = (ID3D12Resource*)IN_MV;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_IN_MV, (nri::Texture*&)textureDescsSigma[0].texture);
 	textureDescsSigma[0].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescsSigma[0].nextLayout = nri::TextureLayout::GENERAL;
 
-	textureDesc_Sigma_IN_SHADOWDATA = {};
-	textureDesc_Sigma_IN_SHADOWDATA.d3d12Resource = (ID3D12Resource*)IN_SHADOWDATA;
-	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_IN_SHADOWDATA, (nri::Texture*&)textureDescsSigma[1].texture);
+	textureDesc_Sigma_IN_NORMAL_ROUGHNESS = {};
+	textureDesc_Sigma_IN_NORMAL_ROUGHNESS.d3d12Resource = (ID3D12Resource*)IN_NORMAL_ROUGHNESS;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_IN_NORMAL_ROUGHNESS, (nri::Texture*&)textureDescsSigma[1].texture);
 	textureDescsSigma[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescsSigma[1].nextLayout = nri::TextureLayout::GENERAL;
 
-	textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY = {};
-	textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY.d3d12Resource = (ID3D12Resource*)IN_SHADOW_TRANSLUCENCY;
-	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY, (nri::Texture*&)textureDescsSigma[2].texture);
+	textureDesc_Sigma_IN_SHADOWDATA = {};
+	textureDesc_Sigma_IN_SHADOWDATA.d3d12Resource = (ID3D12Resource*)IN_SHADOWDATA;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_IN_SHADOWDATA, (nri::Texture*&)textureDescsSigma[2].texture);
 	textureDescsSigma[2].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescsSigma[2].nextLayout = nri::TextureLayout::GENERAL;
 
-	textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY = {};
-	textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY.d3d12Resource = (ID3D12Resource*)OUT_SHADOW_TRANSLUCENCY;
-	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY, (nri::Texture*&)textureDescsSigma[3].texture);
+	textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY = {};
+	textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY.d3d12Resource = (ID3D12Resource*)IN_SHADOW_TRANSLUCENCY;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_IN_SHADOW_TRANSLUCENCY, (nri::Texture*&)textureDescsSigma[3].texture);
 	textureDescsSigma[3].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
 	textureDescsSigma[3].nextLayout = nri::TextureLayout::GENERAL;
 
+	textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY = {};
+	textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY.d3d12Resource = (ID3D12Resource*)OUT_SHADOW_TRANSLUCENCY;
+	NRI.CreateTextureD3D12(*s_nriDevice, textureDesc_Sigma_OUT_SHADOW_TRANSLUCENCY, (nri::Texture*&)textureDescsSigma[4].texture);
+	textureDescsSigma[4].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+	textureDescsSigma[4].nextLayout = nri::TextureLayout::GENERAL;
+
+
+	integrationTexture_Sigma_IN_MV.format = nri::Format::RGBA16_SFLOAT;
+	integrationTexture_Sigma_IN_MV.subresourceStates = &textureDescsSigma[0];
 
 	integrationTexture_Sigma_IN_NORMAL_ROUGHNESS.format = nri::Format::RGBA16_SFLOAT;
-	integrationTexture_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescsSigma[0];
+	integrationTexture_Sigma_IN_NORMAL_ROUGHNESS.subresourceStates = &textureDescsSigma[1];
 
 	integrationTexture_Sigma_IN_SHADOWDATA.format = nri::Format::RGBA16_SFLOAT;
-	integrationTexture_Sigma_IN_SHADOWDATA.subresourceStates = &textureDescsSigma[1];
+	integrationTexture_Sigma_IN_SHADOWDATA.subresourceStates = &textureDescsSigma[2];
 
 	integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY.format = nri::Format::RGBA16_SFLOAT;
-	integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY.subresourceStates = &textureDescsSigma[2];
+	integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY.subresourceStates = &textureDescsSigma[3];
 
 	integrationTexture_Sigma_OUT_SHADOW_TRANSLUCENCY.format = nri::Format::RGBA16_SFLOAT;
-	integrationTexture_Sigma_OUT_SHADOW_TRANSLUCENCY.subresourceStates = &textureDescsSigma[3];
+	integrationTexture_Sigma_OUT_SHADOW_TRANSLUCENCY.subresourceStates = &textureDescsSigma[4];
 
 	_OUT_SHADOW_TRANSLUCENCY = OUT_SHADOW_TRANSLUCENCY;
 
@@ -477,10 +496,11 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 	{
 		// Fill only required "in-use" inputs and outputs in appropriate slots using entryDescs & entryFormat,
 		// applying remapping if necessary. Unused slots will be {nullptr, nri::Format::UNKNOWN}
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_Sigma_IN_NORMAL_ROUGHNESS);
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_SHADOWDATA, integrationTexture_Sigma_IN_SHADOWDATA);
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_SHADOW_TRANSLUCENCY, integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY);
-		NrdIntegration_SetResource(userPool, nrd::ResourceType::OUT_SHADOW_TRANSLUCENCY, integrationTexture_Sigma_OUT_SHADOW_TRANSLUCENCY);
+		NrdIntegration_SetResource(userPoolSigma, nrd::ResourceType::IN_MV, integrationTexture_Sigma_IN_MV);
+		NrdIntegration_SetResource(userPoolSigma, nrd::ResourceType::IN_NORMAL_ROUGHNESS, integrationTexture_Sigma_IN_NORMAL_ROUGHNESS);
+		NrdIntegration_SetResource(userPoolSigma, nrd::ResourceType::IN_SHADOWDATA, integrationTexture_Sigma_IN_SHADOWDATA);
+		NrdIntegration_SetResource(userPoolSigma, nrd::ResourceType::IN_SHADOW_TRANSLUCENCY, integrationTexture_Sigma_IN_SHADOW_TRANSLUCENCY);
+		NrdIntegration_SetResource(userPoolSigma, nrd::ResourceType::OUT_SHADOW_TRANSLUCENCY, integrationTexture_Sigma_OUT_SHADOW_TRANSLUCENCY);
 	};
 
 
@@ -495,7 +515,7 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 	sigmaSettings = {};
 
 
-	NRD.SetMethodSettings(nrd::Method::SIGMA_SHADOW_TRANSLUCENCY, &sigmaSettings);
+	NRDSigma.SetMethodSettings(nrd::Method::SIGMA_SHADOW_TRANSLUCENCY, &sigmaSettings);
 
 
 
@@ -512,60 +532,55 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 
 
 
-void RenderAPI_D3D12::Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+void RenderAPI_D3D12::Denoise()
 {
-	if (nrdInitalized)
+	if (nrdInitalized && !nrdCmdListPopulated)
 	{
-		commonSettings.frameIndex = frameIndex;
-
-		// Set matrices
-		for (int i = 0; i < 16; ++i)
-		{
-			commonSettings.viewToClipMatrixPrev[i] = m_viewToClipMatrixPrev[i];
-			commonSettings.viewToClipMatrix[i] = _viewToClipMatrix[i];
-			m_viewToClipMatrixPrev[i] = _viewToClipMatrix[i];
-
-			commonSettings.worldToViewMatrixPrev[i] = m_worldToViewMatrixPrev[i];
-			commonSettings.worldToViewMatrix[i] = _worldToViewMatrix[i];
-			m_worldToViewMatrixPrev[i] = _worldToViewMatrix[i];
-		}
-
+		s_D3D12CmdList->Reset(s_D3D12CmdAlloc, NULL);
 
 		// Better use "true" if resources are not changing between frames (i.e. are not suballocated from a heap)
-		NRD.Denoise(frameIndex, *s_nriCommandBuffer, commonSettings, userPool, true);
+		NRD.Denoise(commonSettings.frameIndex, *s_nriCommandBuffer, commonSettings, userPool, true);
 
 
 		s_D3D12CmdList->Close();
-		s_D3D12->ExecuteCommandList(s_D3D12CmdList, 1, &resourceState);
+		nrdCmdListPopulated = true;
 	}
+
+	s_D3D12->ExecuteCommandList(s_D3D12CmdList, 1, &resourceState);
 }
 
 
-void RenderAPI_D3D12::DenoiseSigma(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+void RenderAPI_D3D12::DenoiseSigma()
 {
-	if (nrdInitalized)
+	if (nrdInitalizedSigma && !nrdCmdListPopulatedSigma)
 	{
-		commonSettings.frameIndex = frameIndex;
-
-		// Set matrices
-		for (int i = 0; i < 16; ++i)
-		{
-			commonSettings.viewToClipMatrixPrev[i] = m_viewToClipMatrixPrev[i];
-			commonSettings.viewToClipMatrix[i] = _viewToClipMatrix[i];
-			m_viewToClipMatrixPrev[i] = _viewToClipMatrix[i];
-
-			commonSettings.worldToViewMatrixPrev[i] = m_worldToViewMatrixPrev[i];
-			commonSettings.worldToViewMatrix[i] = _worldToViewMatrix[i];
-			m_worldToViewMatrixPrev[i] = _worldToViewMatrix[i];
-		}
-
+		s_D3D12CmdListSigma->Reset(s_D3D12CmdAllocSigma, NULL);
 
 		// Better use "true" if resources are not changing between frames (i.e. are not suballocated from a heap)
-		NRDSigma.Denoise(frameIndex, *s_nriCommandBufferSigma, commonSettings, userPoolSigma, true);
-
+		NRDSigma.Denoise(commonSettings.frameIndex, *s_nriCommandBufferSigma, commonSettings, userPoolSigma, true);
 
 		s_D3D12CmdListSigma->Close();
-		s_D3D12->ExecuteCommandList(s_D3D12CmdListSigma, 1, &resourceStateSigma);
+		nrdCmdListPopulatedSigma = true;
+	}
+
+	s_D3D12->ExecuteCommandList(s_D3D12CmdListSigma, 1, &resourceStateSigma);
+}
+
+
+void RenderAPI_D3D12::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+{
+	commonSettings.frameIndex = frameIndex;
+
+	// Set matrices
+	for (int i = 0; i < 16; ++i)
+	{
+		commonSettings.viewToClipMatrixPrev[i] = m_viewToClipMatrixPrev[i];
+		commonSettings.viewToClipMatrix[i] = _viewToClipMatrix[i];
+		m_viewToClipMatrixPrev[i] = _viewToClipMatrix[i];
+
+		commonSettings.worldToViewMatrixPrev[i] = m_worldToViewMatrixPrev[i];
+		commonSettings.worldToViewMatrix[i] = _worldToViewMatrix[i];
+		m_worldToViewMatrixPrev[i] = _worldToViewMatrix[i];
 	}
 }
 
@@ -581,10 +596,11 @@ void RenderAPI_D3D12::ReleaseTextures()
 	_OUT_DIFF_RADIANCE_HITDIST = nullptr;
 }
 
+
 void RenderAPI_D3D12::ReleaseTexturesSigma()
 {
 	// Better do it only once on shutdown
-	for (uint32_t i = 0; i < 4; i++)
+	for (uint32_t i = 0; i < 5; i++)
 	{
 		if (textureDescsSigma[i].texture != nullptr) NRI.DestroyTexture(*(nri::Texture*&)textureDescsSigma[i].texture);
 	}
@@ -609,6 +625,7 @@ void RenderAPI_D3D12::ReleaseResources()
 	s_nriDevice = nullptr;
 
 	nrdInitalized = false;
+	nrdCmdListPopulated = false;
 }
 
 
@@ -622,6 +639,7 @@ void RenderAPI_D3D12::ReleaseResourcesSigma()
 
 
 	nrdInitalizedSigma = false;
+	nrdCmdListPopulatedSigma = false;
 }
 
 
@@ -636,6 +654,7 @@ void RenderAPI_D3D12::ReleaseNRD()
 		NRD.Destroy();
 
 		nrdInitalized = false;
+		nrdCmdListPopulated = false;
 	}
 }
 
@@ -645,12 +664,13 @@ void RenderAPI_D3D12::ReleaseNRDSigma()
 	// Also NRD needs to be recreated on "resize"
 	if (nrdInitalizedSigma)
 	{
-		if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
+		if (s_nriCommandBufferSigma != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBufferSigma);
 
 		ReleaseTexturesSigma();
 		NRDSigma.Destroy();
 
 		nrdInitalizedSigma = false;
+		nrdCmdListPopulatedSigma = false;
 	}
 }
 

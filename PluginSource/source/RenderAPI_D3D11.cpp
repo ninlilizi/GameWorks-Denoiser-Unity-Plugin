@@ -23,9 +23,10 @@ private:
 	void ReleaseResources();
 	void ReleaseResourcesSigma();
 	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
-	void InitializeSigma(int renderWidth, int renderHeight, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
-	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void DenoiseSigma(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
+	void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
+	void Denoise();
+	void DenoiseSigma();
+	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 	void ReleaseNRD();
 	void ReleaseNRDSigma();
 
@@ -38,6 +39,7 @@ RenderAPI* CreateRenderAPI_D3D11()
 {
 	return new RenderAPI_D3D11();
 }
+
 
 RenderAPI_D3D11::RenderAPI_D3D11()
 	: m_Device(NULL)
@@ -75,6 +77,7 @@ void RenderAPI_D3D11::ReleaseResources()
 {
 }
 
+
 void RenderAPI_D3D11::ReleaseResourcesSigma()
 {
 }
@@ -85,19 +88,25 @@ void RenderAPI_D3D11::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 }
 
 
-void RenderAPI_D3D11::InitializeSigma(int renderWidth, int renderHeight, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
+void RenderAPI_D3D11::InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
 {
 }
 
 
-void RenderAPI_D3D11::Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+void RenderAPI_D3D11::Denoise()
 {
 }
 
 
-void RenderAPI_D3D11::DenoiseSigma(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+void RenderAPI_D3D11::DenoiseSigma()
 {
 }
+
+
+void RenderAPI_D3D11::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+{
+}
+
 
 void RenderAPI_D3D11::ReleaseNRD()
 {
