@@ -6,7 +6,12 @@ LIBRARY
 EXPORTS
    UnityPluginLoad
    UnityPluginUnload
+   NRDSetMatrix
    NRDReleaseResources
-   NRDSetParams
+   NRDReleaseResourcesSigma
+   NRDInitialize
+   NRDInitializeSigma
    NRDExecute
+   NRDExecuteSigma
+   
    

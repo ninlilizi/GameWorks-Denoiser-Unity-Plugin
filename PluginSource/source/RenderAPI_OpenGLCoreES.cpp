@@ -45,10 +45,13 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
+	void ReleaseResourcesSigma();
 	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
+	void InitializeSigma(int renderWidth, int renderHeight, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
 	void Denoise(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void Execute();
+	void DenoiseSigma(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 	void ReleaseNRD();
+	void ReleaseNRDSigma();
 
 private:
 	UnityGfxRenderer m_APIType;
@@ -88,7 +91,16 @@ void RenderAPI_OpenGLCoreES::ReleaseResources()
 {
 }
 
+void RenderAPI_OpenGLCoreES::ReleaseResourcesSigma()
+{
+}
+
 void RenderAPI_OpenGLCoreES::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+{
+}
+
+
+void RenderAPI_OpenGLCoreES::InitializeSigma(int renderWidth, int renderHeight, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
 {
 }
 
@@ -98,12 +110,17 @@ void RenderAPI_OpenGLCoreES::Denoise(int frameIndex, float _viewToClipMatrix[16]
 }
 
 
-void RenderAPI_OpenGLCoreES::Execute()
+void RenderAPI_OpenGLCoreES::DenoiseSigma(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
 {
 }
 
 
 void RenderAPI_OpenGLCoreES::ReleaseNRD()
+{
+}
+
+
+void RenderAPI_OpenGLCoreES::ReleaseNRDSigma()
 {
 }
 

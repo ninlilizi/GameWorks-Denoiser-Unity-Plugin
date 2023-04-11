@@ -1,7 +1,5 @@
 # Unity Native Plugin for Nvidia GameWorks Denoiser
 
-## Note, while this now 'works', there is an outstanding memleak!
-
 This only supports the Unity DX12 renderer. Make sure this is set first.
 
 CMake NRI and NRD projects.
@@ -30,7 +28,10 @@ Import functions
 
 ```
 [DllImport("RTDenoising")]
-private static extern void NRDSetParams(int frameIndex, int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST, float[] viewToClipMatrix, float[] worldToViewMatrix);
+private static extern void NRDInitialize(int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST);
+
+[DllImport("RTDenoising")]
+private static extern void NRDSetMatrix(int frameIndex, float[] viewToClipMatrix, float[] worldToViewMatrix);
 
 [DllImport("RTDenoising")]
 private static extern void NRDReleaseResources();
@@ -50,6 +51,18 @@ void OnDisable()
   
 Rough Usage: (Do this at the end of a frame)
 
+Initalize after resource creation
+```
+NRDInitialize(
+    RT_DiffuseOutput.width,
+    RT_DiffuseOutput.height,
+    RT_NRD_IN_MV.GetNativeTexturePtr(),
+    RT_NRD_IN_NORMAL_ROUGHNESS.GetNativeTexturePtr(),
+    RT_NRD_IN_VIEWZ.GetNativeTexturePtr(),
+    RT_NRD_IN_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr(),
+    RT_NRD_OUT_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr());
+```
+
 Run
 ```
 // Transfer required projection matrices to floats
@@ -57,17 +70,8 @@ Matrix4x4 projectionMatrix = _Camera.projectionMatrix;
 projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);
 float[] matrixArray = new float[16];
 MatrixToFloatArray(projectionMatrix, ref matrixArray);
-
-// Set data to denoiser
-NRDSetParams(Switch_Noise,
-    RT_DiffuseOutput.width,
-    RT_DiffuseOutput.height
-    RT_NRD_IN_MV.GetNativeTexturePtr(),
-    RT_NRD_IN_NORMAL_ROUGHNESS.GetNativeTexturePtr(),
-    RT_NRD_IN_VIEWZ.GetNativeTexturePtr(),
-    RT_NRD_IN_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr(),
-    RT_NRD_OUT_DIFF_RADIANCE_HITDIST.GetNativeTexturePtr(),
-    matrixArray, matrixArray);
+// Set float arrays to plugin
+NRDSetMatrix(Time.frameCount, matrixArray, matrixArray);
 
 // Excute denoiser on render thread
 GL.IssuePluginEvent(NRDExecute(), 0);
