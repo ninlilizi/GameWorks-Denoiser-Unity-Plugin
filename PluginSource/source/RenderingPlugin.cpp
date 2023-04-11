@@ -185,7 +185,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResources()
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseResourcesSigma()
 {
-	if (_NRDInitiazlized && s_CurrentAPI != nullptr)
+	if (_NRDInitiazlizedSigma && s_CurrentAPI != nullptr)
 	{
 		s_CurrentAPI->ReleaseNRDSigma();
 

@@ -27,16 +27,16 @@ RenderTextureDescriptor rtDesc = new RenderTextureDescriptor()
 Import functions
 
 ```
-[DllImport("RTDenoising")]
+[DllImport("NKLIDenoising")]
 private static extern void NRDInitialize(int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST);
 
-[DllImport("RTDenoising")]
+[DllImport("NKLIDenoising")]
 private static extern void NRDSetMatrix(int frameIndex, float[] viewToClipMatrix, float[] worldToViewMatrix);
 
-[DllImport("RTDenoising")]
+[DllImport("NKLIDenoising")]
 private static extern void NRDReleaseResources();
 
-[DllImport("RTDenoising")]
+[DllImport("NKLIDenoising")]
 private static extern IntPtr NRDExecute();
 
 ```
