@@ -7,13 +7,13 @@ EXPORTS
    UnityPluginLoad
    UnityPluginUnload
    NRDSetMatrix
-   NRDReleaseResources
+   NRDReleaseResourcesRelax
    NRDReleaseResourcesSigma
    NRDReleaseResourcesReblur
-   NRDInitialize
+   NRDInitializeRelax
    NRDInitializeSigma
    NRDInitializeReblur
-   NRDExecute
+   NRDExecuteRelax
    NRDExecuteSigma
    NRDExecuteReblur
    
