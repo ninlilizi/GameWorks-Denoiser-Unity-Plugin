@@ -11,7 +11,7 @@ Then you can build the solution.
 Copy the following to your Unity plugins location to use
 * NDI.DLL
 * NRD.DLL
-* RTDenoising.DLL
+* NKLIDenoising.DLL
 
 
 
