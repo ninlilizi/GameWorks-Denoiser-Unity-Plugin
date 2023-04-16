@@ -23,7 +23,6 @@ public:
 	virtual void ProcessDeviceEvent(UnityGfxDeviceEventType type, IUnityInterfaces* interfaces) = 0;
 
 	virtual void ReleaseResources() = 0;
-	virtual void ReleaseResourcesSigma() = 0;
 
 	// Initialize NDR
 	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
@@ -33,7 +32,7 @@ public:
 	virtual void DenoiseSigma() = 0;
 	virtual void DenoiseReblur() = 0;
 	virtual void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]) = 0;
-	virtual void ReleaseNRD() = 0;
+	virtual void ReleaseNRDRelax() = 0;
 	virtual void ReleaseNRDSigma() = 0;
 	virtual void ReleaseNRDReblur() = 0;
 };

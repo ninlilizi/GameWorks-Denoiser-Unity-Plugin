@@ -45,7 +45,6 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
-	void ReleaseResourcesSigma();
 	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
 	void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
 	void InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
@@ -53,7 +52,7 @@ private:
 	void DenoiseSigma();
 	void DenoiseReblur();
 	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void ReleaseNRD();
+	void ReleaseNRDRelax();
 	void ReleaseNRDSigma();
 	void ReleaseNRDReblur();
 
@@ -97,11 +96,6 @@ void RenderAPI_OpenGLCoreES::ReleaseResources()
 }
 
 
-void RenderAPI_OpenGLCoreES::ReleaseResourcesSigma()
-{
-}
-
-
 void RenderAPI_OpenGLCoreES::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
 {
 }
@@ -136,7 +130,7 @@ void RenderAPI_OpenGLCoreES::SetMatrix(int frameIndex, float _viewToClipMatrix[1
 }
 
 
-void RenderAPI_OpenGLCoreES::ReleaseNRD()
+void RenderAPI_OpenGLCoreES::ReleaseNRDRelax()
 {
 }
 

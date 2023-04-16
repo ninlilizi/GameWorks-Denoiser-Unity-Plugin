@@ -28,16 +28,16 @@ Import functions
 
 ```
 [DllImport("NKLIDenoising")]
-private static extern void NRDInitialize(int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST);
+private static extern void NRDInitializeRelax(int renderWidth, int renderHeight, System.IntPtr IN_MV, System.IntPtr IN_NORMAL_ROUGHNESS, System.IntPtr IN_VIEWZ, System.IntPtr IN_DIFF_RADIANCE_HITDIST, System.IntPtr OUT_DIFF_RADIANCE_HITDIST);
 
 [DllImport("NKLIDenoising")]
 private static extern void NRDSetMatrix(int frameIndex, float[] viewToClipMatrix, float[] worldToViewMatrix);
 
 [DllImport("NKLIDenoising")]
-private static extern void NRDReleaseResources();
+private static extern void NRDReleaseRelax();
 
 [DllImport("NKLIDenoising")]
-private static extern IntPtr NRDExecute();
+private static extern IntPtr NRDExecuteRelax();
 
 ```
 
@@ -45,7 +45,7 @@ Cleanup
 ```
 void OnDisable()
 {
-    NRDReleaseResources();
+    NRDReleaseRelax();
 }
 ```
   
@@ -66,15 +66,17 @@ NRDInitialize(
 Run
 ```
 // Transfer required projection matrices to floats
-Matrix4x4 projectionMatrix = _Camera.projectionMatrix;
-projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, true);
-float[] matrixArray = new float[16];
-MatrixToFloatArray(projectionMatrix, ref matrixArray);
+Matrix4x4 viewToClip = _Camera.projectionMatrix;
+Matrix4x4 worldToView = _Camera.worldToCameraMatrix;
+float[] viewToClipArray = new float[16];
+float[] worldToViewArray = new float[16];
+MatrixToFloatArray(viewToClip, ref viewToClipArray);
+MatrixToFloatArray(worldToView, ref worldToViewArray);
 // Set float arrays to plugin
-NRDSetMatrix(Time.frameCount, matrixArray, matrixArray);
+NRDSetMatrix(Time.frameCount, viewToClipArray, worldToViewArray);
 
 // Excute denoiser on render thread
-GL.IssuePluginEvent(NRDExecute(), 0);
+GL.IssuePluginEvent(NRDExecuteRelax(), 0);
 ```
 
-
+Both *Reblur* and *Relax* methods are supported. Replace *Relax* with *Reblur* in the function calls to use *Reblur*.

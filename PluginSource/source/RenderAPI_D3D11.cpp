@@ -21,7 +21,6 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
-	void ReleaseResourcesSigma();
 	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
 	void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
 	void InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
@@ -29,7 +28,7 @@ private:
 	void DenoiseSigma();
 	void DenoiseReblur();
 	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void ReleaseNRD();
+	void ReleaseNRDRelax();
 	void ReleaseNRDSigma();
 	void ReleaseNRDReblur();
 
@@ -63,7 +62,6 @@ void RenderAPI_D3D11::ProcessDeviceEvent(UnityGfxDeviceEventType type, IUnityInt
 		break;
 	}
 	case kUnityGfxDeviceEventShutdown:
-		ReleaseResources();
 		break;
 	}
 }
@@ -77,11 +75,6 @@ void RenderAPI_D3D11::CreateResources()
 
 
 void RenderAPI_D3D11::ReleaseResources()
-{
-}
-
-
-void RenderAPI_D3D11::ReleaseResourcesSigma()
 {
 }
 
@@ -121,7 +114,7 @@ void RenderAPI_D3D11::SetMatrix(int frameIndex, float _viewToClipMatrix[16], flo
 }
 
 
-void RenderAPI_D3D11::ReleaseNRD()
+void RenderAPI_D3D11::ReleaseNRDRelax()
 {
 }
 

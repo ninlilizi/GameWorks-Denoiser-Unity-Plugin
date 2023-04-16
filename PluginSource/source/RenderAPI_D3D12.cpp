@@ -57,8 +57,6 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
-	void ReleaseResourcesSigma();
-	void ReleaseResourcesReblur();
 	void ReleaseTextures();
 	void ReleaseTexturesSigma();
 	void ReleaseTexturesReblur();
@@ -69,9 +67,10 @@ private:
 	void DenoiseSigma();
 	void DenoiseReblur();
 	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void ReleaseNRD();
+	void ReleaseNRDRelax();
 	void ReleaseNRDSigma();
 	void ReleaseNRDReblur();
+	void SetCommonSettings();
 
 
 private:
@@ -152,7 +151,7 @@ private:
 	void* _OUT_Reblur;
 
 
-	bool nrdInitalized = false;
+	bool nrdInitalizedRelax = false;
 	bool nrdInitalizedSigma = false;
 	bool nrdInitalizedReblur = false;
 
@@ -319,13 +318,27 @@ void RenderAPI_D3D12::CreateResources()
 }
 
 
+void RenderAPI_D3D12::SetCommonSettings()
+{
+	// Populate common settings
+	//  - for the first time use defaults
+	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
+	commonSettings = {};
+	commonSettings.isBaseColorMetalnessAvailable = true;
+	commonSettings.isMotionVectorInWorldSpace = true;
+	commonSettings.motionVectorScale[0] = 1.0f;
+	commonSettings.motionVectorScale[1] = 1.0f;
+	commonSettings.motionVectorScale[2] = -1.0f;
+}
+
+
 // INPUTS - IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ, IN_DIFF_RADIANCE_HITDIST,
 void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
 {
 	// Release resources before recreating
-	if (nrdInitalized)
+	if (nrdInitalizedRelax)
 	{
-		ReleaseNRD();
+		ReleaseNRDRelax();
 	}
 
 	// Initialize NRD
@@ -435,12 +448,7 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	};
 
 
-	// Populate common settings
-	//  - for the first time use defaults
-	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
-	commonSettings = {};
-	commonSettings.isBaseColorMetalnessAvailable = true;
-	commonSettings.isMotionVectorInWorldSpace = true;
+	SetCommonSettings();
 
 	// Set settings for each method in the NRD instance
 	relaxSettings = {};
@@ -460,7 +468,7 @@ void RenderAPI_D3D12::Initialize(int renderWidth, int renderHeight, void* IN_MV,
 	resourceState.current = D3D12_RESOURCE_STATE_COPY_DEST;
 
 	
-	nrdInitalized = true;
+	nrdInitalizedRelax = true;
 }
 
 
@@ -580,16 +588,7 @@ void RenderAPI_D3D12::InitializeReblur(int renderWidth, int renderHeight, void* 
 	};
 
 
-	// Populate common settings
-	//  - for the first time use defaults
-	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
-	commonSettings = {};
-	commonSettings.isBaseColorMetalnessAvailable = true;
-	commonSettings.isMotionVectorInWorldSpace = true;
-	commonSettings.motionVectorScale[0] = 1.0f;
-	commonSettings.motionVectorScale[1] = 1.0f;
-	commonSettings.motionVectorScale[2] = 1.0f;
-	
+	SetCommonSettings();	
 
 	// Set settings for each method in the NRD instance
 	reblurSettings = {};
@@ -719,12 +718,7 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 	};
 
 
-	// Populate common settings
-	//  - for the first time use defaults
-	//  - currently NRD supports only the following view space: X - right, Y - top, Z - forward or backward
-	commonSettings = {};
-	commonSettings.isBaseColorMetalnessAvailable = false;
-	commonSettings.isMotionVectorInWorldSpace = true;
+	SetCommonSettings();
 
 	// Set settings for each method in the NRD instance
 	sigmaSettings = {};
@@ -749,7 +743,7 @@ void RenderAPI_D3D12::InitializeSigma(int renderWidth, int renderHeight, void* I
 
 void RenderAPI_D3D12::Denoise()
 {
-	if (nrdInitalized && !nrdCmdListPopulated)
+	if (nrdInitalizedRelax && !nrdCmdListPopulated)
 	{
 		s_D3D12CmdList->Reset(s_D3D12CmdAlloc, NULL);
 
@@ -857,63 +851,43 @@ void RenderAPI_D3D12::ReleaseTexturesReblur()
 
 void RenderAPI_D3D12::ReleaseResources()
 {
-	SAFE_RELEASE(s_D3D12Upload);
-	if (s_D3D12Event)
-		CloseHandle(s_D3D12Event);
-	SAFE_RELEASE(s_D3D12CmdList);
-	SAFE_RELEASE(s_D3D12CmdAlloc);
-	SAFE_RELEASE(s_IDXGIAdapter);
+	if (nrdInitalizedRelax)
+	{
+		SAFE_RELEASE(s_D3D12Upload);
+		if (s_D3D12Event)
+			CloseHandle(s_D3D12Event);
+		SAFE_RELEASE(s_IDXGIAdapter);
 
-	ReleaseTextures();
-	ReleaseNRD();
+		ReleaseTextures();
+		ReleaseNRDRelax();
+		ReleaseNRDSigma();
+		ReleaseNRDReblur();
 
-	//NRI.DestroyDevice(*s_nriDevice);
-	s_nriDevice = nullptr;
+		SAFE_RELEASE(s_D3D12CmdList);
+		SAFE_RELEASE(s_D3D12CmdListSigma);
+		SAFE_RELEASE(s_D3D12CmdListReblur);
+		SAFE_RELEASE(s_D3D12CmdAlloc);
+		SAFE_RELEASE(s_D3D12CmdAllocSigma);
+		SAFE_RELEASE(s_D3D12CmdAllocReblur);
 
-	nrdInitalized = false;
-	nrdCmdListPopulated = false;
+
+		//NRI.DestroyDevice(*s_nriDevice);
+		s_nriDevice = nullptr;
+
+	}
 }
 
 
-void RenderAPI_D3D12::ReleaseResourcesSigma()
-{
-	SAFE_RELEASE(s_D3D12CmdListSigma);
-	SAFE_RELEASE(s_D3D12CmdAllocSigma);
-	
-	ReleaseTexturesSigma();
-	ReleaseNRDSigma();
-
-
-	nrdInitalizedSigma = false;
-	nrdCmdListPopulatedSigma = false;
-}
-
-
-void RenderAPI_D3D12::ReleaseResourcesReblur()
-{
-	SAFE_RELEASE(s_D3D12CmdListReblur);
-	SAFE_RELEASE(s_D3D12CmdAllocReblur);
-
-	ReleaseTexturesReblur();
-	ReleaseNRDReblur();
-
-
-	nrdInitalizedReblur = false;
-	nrdCmdListPopulatedReblur = false;
-}
-
-
-void RenderAPI_D3D12::ReleaseNRD()
+void RenderAPI_D3D12::ReleaseNRDRelax()
 {
 	// Also NRD needs to be recreated on "resize"
-	if (nrdInitalized)
+	if (nrdInitalizedRelax)
 	{
 		if (s_nriCommandBuffer != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBuffer);
 
-		//ReleaseTextures();
 		NRD.Destroy();
 
-		nrdInitalized = false;
+		nrdInitalizedRelax = false;
 		nrdCmdListPopulated = false;
 	}
 }
@@ -926,7 +900,6 @@ void RenderAPI_D3D12::ReleaseNRDSigma()
 	{
 		if (s_nriCommandBufferSigma != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBufferSigma);
 
-		//ReleaseTexturesSigma();
 		NRDSigma.Destroy();
 
 		nrdInitalizedSigma = false;
@@ -942,7 +915,6 @@ void RenderAPI_D3D12::ReleaseNRDReblur()
 	{
 		if (s_nriCommandBufferReblur != nullptr) NRI.DestroyCommandBuffer(*s_nriCommandBufferReblur);
 
-		//ReleaseTexturesReblur();
 		NRDReblur.Destroy();
 
 		nrdInitalizedReblur = false;
