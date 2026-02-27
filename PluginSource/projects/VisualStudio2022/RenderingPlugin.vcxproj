@@ -22,10 +22,10 @@
     <ClInclude Include="..\..\NRD\Integration\NRDIntegration.hpp" />
     <ClInclude Include="..\..\NRD\Include\NRD.h" />
     <ClInclude Include="..\..\NRD\Integration\NRDIntegration.h" />
-    <ClInclude Include="..\..\NRI\Include\Extensions\NRIHelper.h" />
-    <ClInclude Include="..\..\NRI\Include\Extensions\NRIWrapperD3D12.h" />
-    <ClInclude Include="..\..\NRI\Include\NRI.h" />
-    <ClInclude Include="..\..\NRI\Include\NRIDescs.h" />
+    <ClInclude Include="..\..\NRD\_Build\_deps\nri-src\Include\Extensions\NRIHelper.h" />
+    <ClInclude Include="..\..\NRD\_Build\_deps\nri-src\Include\Extensions\NRIWrapperD3D12.h" />
+    <ClInclude Include="..\..\NRD\_Build\_deps\nri-src\Include\NRI.h" />
+    <ClInclude Include="..\..\NRD\_Build\_deps\nri-src\Include\NRIDescs.h" />
     <ClInclude Include="..\..\source\D3DCommandQueue.h" />
     <ClInclude Include="..\..\source\DX12\d3dcommon.h" />
     <ClInclude Include="..\..\source\DX12\d3dx12.h" />
@@ -42,6 +42,7 @@
     <ClInclude Include="..\..\source\gl3w\gl3w.h" />
     <ClInclude Include="..\..\source\gl3w\glcorearb.h" />
     <ClInclude Include="..\..\source\PlatformBase.h" />
+    <ClInclude Include="..\..\source\NRDDenoiserConfig.h" />
     <ClInclude Include="..\..\source\RenderAPI.h" />
     <ClInclude Include="..\..\source\Unity\IUnityGraphics.h" />
     <ClInclude Include="..\..\source\Unity\IUnityGraphicsD3D11.h" />
@@ -53,6 +54,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\source\D3DCommandQueue.cpp" />
     <ClCompile Include="..\..\source\gl3w\gl3w.c" />
+    <ClCompile Include="..\..\source\NRDDenoiserConfig.cpp" />
     <ClCompile Include="..\..\source\RenderAPI.cpp" />
     <ClCompile Include="..\..\source\RenderAPI_D3D11.cpp" />
     <ClCompile Include="..\..\source\RenderAPI_D3D12.cpp" />
@@ -187,9 +189,10 @@ ENDLOCAL
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>../../</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>NRD.lib;NRI_Shared.lib;NRI_D3D11.lib;NRI_D3D12.lib;NRI_Validation.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>NRD.lib;NRI.lib;NRI_Shared.lib;NRI_D3D11.lib;NRI_D3D12.lib;NRI_Validation.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <ModuleDefinitionFile>../../source/RenderingPlugin.def</ModuleDefinitionFile>
@@ -260,9 +263,10 @@ ENDLOCAL
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>../../</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>NRD.lib;NRI_Shared.lib;NRI_D3D11.lib;NRI_D3D12.lib;NRI_Validation.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>NRD.lib;NRI.lib;NRI_Shared.lib;NRI_D3D11.lib;NRI_D3D12.lib;NRI_Validation.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>

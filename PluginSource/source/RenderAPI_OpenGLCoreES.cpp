@@ -45,16 +45,10 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
-	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
-	void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
-	void InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
-	void Denoise();
-	void DenoiseSigma();
-	void DenoiseReblur();
-	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void ReleaseNRDRelax();
-	void ReleaseNRDSigma();
-	void ReleaseNRDReblur();
+	bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount);
+	void NRDDenoise(int denoiserType);
+	void NRDRelease(int denoiserType);
+	void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16]);
 
 private:
 	UnityGfxRenderer m_APIType;
@@ -96,51 +90,23 @@ void RenderAPI_OpenGLCoreES::ReleaseResources()
 }
 
 
-void RenderAPI_OpenGLCoreES::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+bool RenderAPI_OpenGLCoreES::NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount)
+{
+	return false;
+}
+
+
+void RenderAPI_OpenGLCoreES::NRDDenoise(int denoiserType)
 {
 }
 
 
-void RenderAPI_OpenGLCoreES::InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
+void RenderAPI_OpenGLCoreES::NRDRelease(int denoiserType)
 {
 }
 
 
-void RenderAPI_OpenGLCoreES::InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
-{
-}
-
-
-void RenderAPI_OpenGLCoreES::Denoise()
-{
-}
-
-
-void RenderAPI_OpenGLCoreES::DenoiseSigma()
-{
-}
-
-void RenderAPI_OpenGLCoreES::DenoiseReblur()
-{
-}
-
-
-void RenderAPI_OpenGLCoreES::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
-{
-}
-
-
-void RenderAPI_OpenGLCoreES::ReleaseNRDRelax()
-{
-}
-
-
-void RenderAPI_OpenGLCoreES::ReleaseNRDSigma()
-{
-}
-
-
-void RenderAPI_OpenGLCoreES::ReleaseNRDReblur()
+void RenderAPI_OpenGLCoreES::SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
 {
 }
 

@@ -18,26 +18,19 @@ class RenderAPI
 public:
 	virtual ~RenderAPI() { }
 
-
 	// Process general event like initialization, shutdown, device loss/reset etc.
 	virtual void ProcessDeviceEvent(UnityGfxDeviceEventType type, IUnityInterfaces* interfaces) = 0;
 
 	virtual void ReleaseResources() = 0;
 
-	// Initialize NDR
-	virtual void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
-	virtual void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY) = 0;
-	virtual void InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST) = 0;
-	virtual void Denoise() = 0;
-	virtual void DenoiseSigma() = 0;
-	virtual void DenoiseReblur() = 0;
-	virtual void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]) = 0;
-	virtual void ReleaseNRDRelax() = 0;
-	virtual void ReleaseNRDSigma() = 0;
-	virtual void ReleaseNRDReblur() = 0;
+	// Generic NRD interface — denoiserType maps to nrd::Denoiser enum value (0..18)
+	virtual bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount) = 0;
+	virtual void NRDDenoise(int denoiserType) = 0;
+	virtual void NRDRelease(int denoiserType) = 0;
+	virtual void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16]) = 0;
+	virtual int GetLastInitError() { return 6; }
 };
 
 
 // Create a graphics API implementation instance for the given API type.
 RenderAPI* CreateRenderAPI(UnityGfxRenderer apiType);
-

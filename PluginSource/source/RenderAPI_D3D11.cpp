@@ -21,16 +21,10 @@ public:
 private:
 	void CreateResources();
 	void ReleaseResources();
-	void Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
-	void InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY);
-	void InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST);
-	void Denoise();
-	void DenoiseSigma();
-	void DenoiseReblur();
-	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
-	void ReleaseNRDRelax();
-	void ReleaseNRDSigma();
-	void ReleaseNRDReblur();
+	bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount);
+	void NRDDenoise(int denoiserType);
+	void NRDRelease(int denoiserType);
+	void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16]);
 
 private:
 	ID3D11Device* m_Device;
@@ -79,52 +73,23 @@ void RenderAPI_D3D11::ReleaseResources()
 }
 
 
-void RenderAPI_D3D11::Initialize(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
+bool RenderAPI_D3D11::NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount)
+{
+	return false;
+}
+
+
+void RenderAPI_D3D11::NRDDenoise(int denoiserType)
 {
 }
 
 
-void RenderAPI_D3D11::InitializeSigma(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_SHADOWDATA, void* IN_SHADOW_TRANSLUCENCY, void* OUT_SHADOW_TRANSLUCENCY)
+void RenderAPI_D3D11::NRDRelease(int denoiserType)
 {
 }
 
 
-void RenderAPI_D3D11::InitializeReblur(int renderWidth, int renderHeight, void* IN_MV, void* IN_NORMAL_ROUGHNESS, void* IN_BASECOLOR_METALNESS, void* IN_VIEWZ, void* IN_DIFF_RADIANCE_HITDIST, void* OUT_DIFF_RADIANCE_HITDIST)
-{
-}
-
-
-void RenderAPI_D3D11::Denoise()
-{
-}
-
-
-void RenderAPI_D3D11::DenoiseSigma()
-{
-}
-
-
-void RenderAPI_D3D11::DenoiseReblur()
-{
-}
-
-
-void RenderAPI_D3D11::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
-{
-}
-
-
-void RenderAPI_D3D11::ReleaseNRDRelax()
-{
-}
-
-
-void RenderAPI_D3D11::ReleaseNRDSigma()
-{
-}
-
-
-void RenderAPI_D3D11::ReleaseNRDReblur()
+void RenderAPI_D3D11::SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
 {
 }
 
