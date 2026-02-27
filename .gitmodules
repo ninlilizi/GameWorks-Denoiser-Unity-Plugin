@@ -1,0 +1,6 @@
+[submodule "PluginSource/NRI"]
+	path = PluginSource/NRI
+	url = https://github.com/NVIDIA-RTX/NRI.git
+[submodule "PluginSource/NRD"]
+	path = PluginSource/NRD
+	url = https://github.com/NVIDIA-RTX/NRD.git

@@ -10,7 +10,7 @@
 #include "Unity/IUnityRenderingExtensions.h"
 
 // Gameworks
-#include "../NRI/_NRI_SDK/Include/NRI.h"
+#include "../NRI/Include/NRI.h"
 
 bool _NRDInitializedRelax;
 bool _NRDInitializedSigma;
