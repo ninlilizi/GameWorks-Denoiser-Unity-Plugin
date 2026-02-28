@@ -1,5 +1,4 @@
-# Unity Native Plugin for NVIDIA NRD 
-# (Real-Time Denoisers)
+# Unity Native Plugin for NVIDIA NRD (Real-Time Denoisers)
 
 A Unity native plugin wrapping NVIDIA's [NRD](https://github.com/NVIDIAGameWorks/RayTracingDenoiser) library. Provides access to all 19 NRD denoiser types (Reblur, Relax, Sigma, Reference) through a generic data-driven API.
 
