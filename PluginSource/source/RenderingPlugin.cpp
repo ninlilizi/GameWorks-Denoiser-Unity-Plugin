@@ -18,7 +18,7 @@
 static bool g_initialized[NRD_DENOISER_COUNT] = {};
 static int g_prevWidth[NRD_DENOISER_COUNT] = {};
 static int g_prevHeight[NRD_DENOISER_COUNT] = {};
-static std::mutex g_mutex[NRD_DENOISER_COUNT];
+static std::mutex g_mutex;
 
 // Diagnostic: last error code from NRDInitialize
 static int g_lastInitError = 0;
@@ -125,7 +125,7 @@ static void UNITY_INTERFACE_API OnExecuteEventGeneric(int eventID)
 	if (eventID < 0 || eventID >= NRD_DENOISER_COUNT)
 		return;
 
-	std::unique_lock<std::mutex> lock(g_mutex[eventID], std::try_to_lock);
+	std::unique_lock<std::mutex> lock(g_mutex, std::try_to_lock);
 	if (!lock.owns_lock())
 		return;
 
@@ -166,7 +166,7 @@ extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDInitialize(int den
 		return false;
 	}
 
-	std::lock_guard<std::mutex> lock(g_mutex[denoiserType]);
+	std::lock_guard<std::mutex> lock(g_mutex);
 
 	if (s_CurrentAPI == nullptr)
 	{
@@ -205,7 +205,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDRelease(int denois
 	if (denoiserType < 0 || denoiserType >= NRD_DENOISER_COUNT)
 		return;
 
-	std::lock_guard<std::mutex> lock(g_mutex[denoiserType]);
+	std::lock_guard<std::mutex> lock(g_mutex);
 
 	if (g_initialized[denoiserType] && s_CurrentAPI != nullptr)
 	{
@@ -223,8 +223,13 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDGet
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseAll()
 {
-	for (int i = 0; i < NRD_DENOISER_COUNT; i++)
-		NRDRelease(i);
+	std::lock_guard<std::mutex> lock(g_mutex);
+	if (s_CurrentAPI != nullptr)
+	{
+		s_CurrentAPI->NRDReleaseAllSlots();
+		for (int i = 0; i < NRD_DENOISER_COUNT; i++)
+			g_initialized[i] = false;
+	}
 }
 
 

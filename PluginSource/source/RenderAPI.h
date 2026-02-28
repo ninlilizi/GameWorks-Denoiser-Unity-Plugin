@@ -27,6 +27,7 @@ public:
 	virtual bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount) = 0;
 	virtual void NRDDenoise(int denoiserType) = 0;
 	virtual void NRDRelease(int denoiserType) = 0;
+	virtual void NRDReleaseAllSlots() {}
 	virtual void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16]) = 0;
 	virtual int GetLastInitError() { return 6; }
 };

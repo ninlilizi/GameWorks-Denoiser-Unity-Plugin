@@ -7,7 +7,7 @@
 // Common inputs (used by most denoisers):
 //   IN_MV, IN_NORMAL_ROUGHNESS, IN_VIEWZ
 // Exceptions:
-//   SIGMA_SHADOW/TRANSLUCENCY: no IN_VIEWZ
+//   SIGMA_SHADOW/TRANSLUCENCY: IN_VIEWZ required (used in classify, blur, post-blur, temporal stabilization, split screen)
 //   REFERENCE: no common inputs
 //
 // IN_BASECOLOR_METALNESS is included for REBLUR/RELAX types that use stabilization.
@@ -274,12 +274,14 @@ const DenoiserTypeDesc g_DenoiserTypeDescs[NRD_DENOISER_COUNT] =
 	// [16] SIGMA_SHADOW
 	// INPUTS: IN_PENUMBRA, OUT_SHADOW_TRANSLUCENCY (history)
 	// OUTPUTS: OUT_SHADOW_TRANSLUCENCY
-	// No IN_VIEWZ; IN_MV used only if stabilizationStrength != 0
+	// IN_VIEWZ required (used in classify tiles, blur, post-blur, temporal stabilization, split screen)
+	// IN_MV used only if stabilizationStrength != 0
 	{
-		nrd::Denoiser::SIGMA_SHADOW, SettingsFamily::SIGMA, 4,
+		nrd::Denoiser::SIGMA_SHADOW, SettingsFamily::SIGMA, 5,
 		{
 			{ nrd::ResourceType::IN_MV, false },
 			{ nrd::ResourceType::IN_NORMAL_ROUGHNESS, false },
+			{ nrd::ResourceType::IN_VIEWZ, false },
 			{ nrd::ResourceType::IN_PENUMBRA, false },
 			{ nrd::ResourceType::OUT_SHADOW_TRANSLUCENCY, true },
 		}
@@ -288,11 +290,13 @@ const DenoiserTypeDesc g_DenoiserTypeDescs[NRD_DENOISER_COUNT] =
 	// [17] SIGMA_SHADOW_TRANSLUCENCY
 	// INPUTS: IN_PENUMBRA, IN_TRANSLUCENCY, OUT_SHADOW_TRANSLUCENCY (history)
 	// OUTPUTS: OUT_SHADOW_TRANSLUCENCY
+	// IN_VIEWZ required (same passes as SIGMA_SHADOW)
 	{
-		nrd::Denoiser::SIGMA_SHADOW_TRANSLUCENCY, SettingsFamily::SIGMA, 5,
+		nrd::Denoiser::SIGMA_SHADOW_TRANSLUCENCY, SettingsFamily::SIGMA, 6,
 		{
 			{ nrd::ResourceType::IN_MV, false },
 			{ nrd::ResourceType::IN_NORMAL_ROUGHNESS, false },
+			{ nrd::ResourceType::IN_VIEWZ, false },
 			{ nrd::ResourceType::IN_PENUMBRA, false },
 			{ nrd::ResourceType::IN_TRANSLUCENCY, false },
 			{ nrd::ResourceType::OUT_SHADOW_TRANSLUCENCY, true },

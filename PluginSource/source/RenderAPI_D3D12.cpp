@@ -90,6 +90,7 @@ struct DenoiserSlot
 	int width = 0;
 	int height = 0;
 	bool cmdObjectsCreated = false;
+	UINT64 lastFenceValue = 0; // Fence value from last ExecuteCommandList — used to wait for GPU completion before release
 };
 
 
@@ -109,6 +110,7 @@ private:
 	bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount);
 	void NRDDenoise(int denoiserType);
 	void NRDRelease(int denoiserType);
+	void NRDReleaseAllSlots();
 	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
 
 	bool CreateCommandObjects(DenoiserSlot& slot);
@@ -314,6 +316,17 @@ void RenderAPI_D3D12::NRDDenoise(int denoiserType)
 
 	DenoiserSlot& slot = m_slots[denoiserType];
 
+	// Ensure the GPU has finished executing the previous command list for
+	// this slot before resetting the allocator. D3D12 forbids resetting a
+	// command allocator while the GPU is still reading from it — doing so
+	// corrupts in-flight commands and causes a device hang (TDR).
+	if (slot.lastFenceValue > 0 && s_D3D12 != nullptr)
+	{
+		ID3D12Fence* frameFence = s_D3D12->GetFrameFence();
+		if (frameFence && frameFence->GetCompletedValue() < slot.lastFenceValue)
+			return; // GPU still busy with previous denoise — skip this frame
+	}
+
 	// Reset and begin recording
 	slot.cmdAlloc->Reset();
 	slot.cmdList->Reset(slot.cmdAlloc, NULL);
@@ -352,7 +365,7 @@ void RenderAPI_D3D12::NRDDenoise(int denoiserType)
 	slot.integration.DenoiseD3D12(&id, 1, cmdBufferDesc, snapshot);
 
 	slot.cmdList->Close();
-	s_D3D12->ExecuteCommandList(slot.cmdList, slot.outputStateCount, slot.outputStates);
+	slot.lastFenceValue = s_D3D12->ExecuteCommandList(slot.cmdList, slot.outputStateCount, slot.outputStates);
 }
 
 
@@ -379,15 +392,72 @@ void RenderAPI_D3D12::NRDRelease(int denoiserType)
 	if (denoiserType < 0 || denoiserType >= NRD_DENOISER_COUNT)
 		return;
 
-	m_slots[denoiserType].integration.Destroy();
+	DenoiserSlot& slot = m_slots[denoiserType];
+
+	// Wait for the GPU to finish executing the last NRD command list
+	// before destroying NRI/NRD resources. Without this, the GPU may
+	// still be reading from D3D12 resources that are about to be freed,
+	// causing a DEVICE_REMOVED error.
+	if (slot.lastFenceValue > 0 && s_D3D12 != nullptr)
+	{
+		ID3D12Fence* frameFence = s_D3D12->GetFrameFence();
+		if (frameFence && frameFence->GetCompletedValue() < slot.lastFenceValue)
+		{
+			HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			if (event)
+			{
+				frameFence->SetEventOnCompletion(slot.lastFenceValue, event);
+				WaitForSingleObject(event, 5000); // 5s timeout to avoid infinite hang
+				CloseHandle(event);
+			}
+		}
+		slot.lastFenceValue = 0;
+	}
+
+	slot.integration.Destroy();
+}
+
+
+void RenderAPI_D3D12::NRDReleaseAllSlots()
+{
+	if (s_D3D12 == nullptr)
+		return;
+
+	// Phase 1: Find max fence value across ALL slots, wait once
+	UINT64 maxFenceValue = 0;
+	for (int i = 0; i < NRD_DENOISER_COUNT; i++)
+		if (m_slots[i].lastFenceValue > maxFenceValue)
+			maxFenceValue = m_slots[i].lastFenceValue;
+
+	if (maxFenceValue > 0)
+	{
+		ID3D12Fence* frameFence = s_D3D12->GetFrameFence();
+		if (frameFence && frameFence->GetCompletedValue() < maxFenceValue)
+		{
+			HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			if (event)
+			{
+				frameFence->SetEventOnCompletion(maxFenceValue, event);
+				WaitForSingleObject(event, 5000);
+				CloseHandle(event);
+			}
+		}
+	}
+
+	// Phase 2: GPU is idle — destroy all integrations
+	for (int i = 0; i < NRD_DENOISER_COUNT; i++)
+	{
+		m_slots[i].lastFenceValue = 0;
+		m_slots[i].integration.Destroy();
+	}
 }
 
 
 void RenderAPI_D3D12::ReleaseResources()
 {
+	NRDReleaseAllSlots();
 	for (int i = 0; i < NRD_DENOISER_COUNT; i++)
 	{
-		m_slots[i].integration.Destroy();
 		SAFE_RELEASE(m_slots[i].cmdList);
 		SAFE_RELEASE(m_slots[i].cmdAlloc);
 		m_slots[i].cmdObjectsCreated = false;
