@@ -8,6 +8,12 @@
 struct IUnityInterfaces;
 
 
+// Ring buffer size for per-frame matrix data. Must be power of 2.
+// Prevents main-thread/render-thread race on commonSettings matrices.
+static const int MATRIX_RING_SIZE = 4;
+static const int MATRIX_RING_MASK = MATRIX_RING_SIZE - 1;
+
+
 // Super-simple "graphics abstraction". This is nothing like how a proper platform abstraction layer would look like;
 // all this does is a base interface for whatever our plugin sample needs. Which is only "draw some triangles"
 // and "modify a texture" at this point.
@@ -25,10 +31,11 @@ public:
 
 	// Generic NRD interface — denoiserType maps to nrd::Denoiser enum value (0..18)
 	virtual bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount) = 0;
-	virtual void NRDDenoise(int denoiserType) = 0;
+	virtual void NRDDenoise(int denoiserType, int frameSlot) = 0;
 	virtual void NRDRelease(int denoiserType) = 0;
 	virtual void NRDReleaseAllSlots() {}
-	virtual void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16]) = 0;
+	virtual void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime) = 0;
+	virtual void SetLightDirection(float x, float y, float z) {}
 	virtual int GetLastInitError() { return 6; }
 };
 

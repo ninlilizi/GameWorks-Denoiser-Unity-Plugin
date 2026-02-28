@@ -46,9 +46,9 @@ private:
 	void CreateResources();
 	void ReleaseResources();
 	bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount);
-	void NRDDenoise(int denoiserType);
+	void NRDDenoise(int denoiserType, int frameSlot);
 	void NRDRelease(int denoiserType);
-	void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16]);
+	void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime);
 
 private:
 	UnityGfxRenderer m_APIType;
@@ -96,7 +96,7 @@ bool RenderAPI_OpenGLCoreES::NRDInitialize(int denoiserType, int renderWidth, in
 }
 
 
-void RenderAPI_OpenGLCoreES::NRDDenoise(int denoiserType)
+void RenderAPI_OpenGLCoreES::NRDDenoise(int denoiserType, int frameSlot)
 {
 }
 
@@ -106,7 +106,7 @@ void RenderAPI_OpenGLCoreES::NRDRelease(int denoiserType)
 }
 
 
-void RenderAPI_OpenGLCoreES::SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
+void RenderAPI_OpenGLCoreES::SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime)
 {
 }
 

@@ -22,9 +22,9 @@ private:
 	void CreateResources();
 	void ReleaseResources();
 	bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount);
-	void NRDDenoise(int denoiserType);
+	void NRDDenoise(int denoiserType, int frameSlot);
 	void NRDRelease(int denoiserType);
-	void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16]);
+	void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime);
 
 private:
 	ID3D11Device* m_Device;
@@ -79,7 +79,7 @@ bool RenderAPI_D3D11::NRDInitialize(int denoiserType, int renderWidth, int rende
 }
 
 
-void RenderAPI_D3D11::NRDDenoise(int denoiserType)
+void RenderAPI_D3D11::NRDDenoise(int denoiserType, int frameSlot)
 {
 }
 
@@ -89,7 +89,7 @@ void RenderAPI_D3D11::NRDRelease(int denoiserType)
 }
 
 
-void RenderAPI_D3D11::SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
+void RenderAPI_D3D11::SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime)
 {
 }
 

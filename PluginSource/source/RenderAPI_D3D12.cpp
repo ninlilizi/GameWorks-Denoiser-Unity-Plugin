@@ -7,6 +7,7 @@
 #include "NRDDenoiserConfig.h"
 
 #include <cmath>
+#include <cstring>
 
 // Direct3D 12 implementation of RenderAPI.
 
@@ -97,6 +98,19 @@ struct DenoiserSlot
 const UINT kNodeMask = 0;
 
 
+// Per-frame matrix snapshot stored in a ring buffer.
+// The main thread writes via SetMatrix; the render thread reads via NRDDenoise.
+struct FrameMatrixData
+{
+	float viewToClip[16];
+	float worldToView[16];
+	float viewToClipPrev[16];
+	float worldToViewPrev[16];
+	int frameIndex;
+	float deltaTime;
+};
+
+
 class RenderAPI_D3D12 : public RenderAPI
 {
 public:
@@ -108,10 +122,11 @@ public:
 private:
 	void ReleaseResources();
 	bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount);
-	void NRDDenoise(int denoiserType);
+	void NRDDenoise(int denoiserType, int frameSlot);
 	void NRDRelease(int denoiserType);
 	void NRDReleaseAllSlots();
-	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16]);
+	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16], float deltaTime);
+	void SetLightDirection(float x, float y, float z) override;
 
 	bool CreateCommandObjects(DenoiserSlot& slot);
 	void ApplyDenoiserSettings(int type, DenoiserSlot& slot);
@@ -124,8 +139,13 @@ private:
 	nrd::CommonSettings commonSettings;
 	DenoiserSlot m_slots[NRD_DENOISER_COUNT];
 
+	// Ring buffer for thread-safe matrix passing (main thread → render thread)
+	FrameMatrixData m_matrixRing[MATRIX_RING_SIZE];
 	float m_viewToClipMatrixPrev[16];
 	float m_worldToViewMatrixPrev[16];
+
+	// Light direction for SIGMA shadow denoisers (direction TO the light source)
+	float m_lightDirection[3] = {};
 };
 
 
@@ -139,6 +159,7 @@ RenderAPI_D3D12::RenderAPI_D3D12()
 	: s_D3D12(NULL)
 	, commonSettings()
 	, m_slots()
+	, m_matrixRing()
 	, m_viewToClipMatrixPrev()
 	, m_worldToViewMatrixPrev()
 {
@@ -207,6 +228,9 @@ void RenderAPI_D3D12::ApplyDenoiserSettings(int type, DenoiserSlot& slot)
 	case SettingsFamily::SIGMA:
 	{
 		nrd::SigmaSettings settings = {};
+		settings.lightDirection[0] = m_lightDirection[0];
+		settings.lightDirection[1] = m_lightDirection[1];
+		settings.lightDirection[2] = m_lightDirection[2];
 		slot.integration.SetDenoiserSettings(0, &settings);
 		break;
 	}
@@ -309,7 +333,7 @@ bool RenderAPI_D3D12::NRDInitialize(int denoiserType, int renderWidth, int rende
 }
 
 
-void RenderAPI_D3D12::NRDDenoise(int denoiserType)
+void RenderAPI_D3D12::NRDDenoise(int denoiserType, int frameSlot)
 {
 	if (denoiserType < 0 || denoiserType >= NRD_DENOISER_COUNT)
 		return;
@@ -320,12 +344,34 @@ void RenderAPI_D3D12::NRDDenoise(int denoiserType)
 	// this slot before resetting the allocator. D3D12 forbids resetting a
 	// command allocator while the GPU is still reading from it — doing so
 	// corrupts in-flight commands and causes a device hang (TDR).
+	// IMPORTANT: we WAIT instead of skipping. Skipping causes the NRD
+	// integration's internal history to go stale, producing temporal drift
+	// (the reprojection overshoots because history is 2+ frames old).
 	if (slot.lastFenceValue > 0 && s_D3D12 != nullptr)
 	{
 		ID3D12Fence* frameFence = s_D3D12->GetFrameFence();
 		if (frameFence && frameFence->GetCompletedValue() < slot.lastFenceValue)
-			return; // GPU still busy with previous denoise — skip this frame
+		{
+			HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			if (event)
+			{
+				frameFence->SetEventOnCompletion(slot.lastFenceValue, event);
+				WaitForSingleObject(event, 2000); // 2s timeout to avoid infinite hang
+				CloseHandle(event);
+			}
+		}
 	}
+
+	// Apply matrices from the ring buffer for this frame's slot.
+	// This ensures we use the matrices that were set by the main thread
+	// for THIS frame, not a future frame that may have already overwritten
+	// commonSettings in a multithreaded rendering scenario.
+	const FrameMatrixData& frame = m_matrixRing[frameSlot & MATRIX_RING_MASK];
+	commonSettings.frameIndex = frame.frameIndex;
+	memcpy(commonSettings.viewToClipMatrix, frame.viewToClip, sizeof(float) * 16);
+	memcpy(commonSettings.viewToClipMatrixPrev, frame.viewToClipPrev, sizeof(float) * 16);
+	memcpy(commonSettings.worldToViewMatrix, frame.worldToView, sizeof(float) * 16);
+	memcpy(commonSettings.worldToViewMatrixPrev, frame.worldToViewPrev, sizeof(float) * 16);
 
 	// Reset and begin recording
 	slot.cmdAlloc->Reset();
@@ -334,8 +380,26 @@ void RenderAPI_D3D12::NRDDenoise(int denoiserType)
 	// Update NRD per frame
 	slot.integration.NewFrame();
 
+	// Build resource snapshot from table
+	const DenoiserTypeDesc& desc = g_DenoiserTypeDescs[denoiserType];
+
+	// Check if this denoiser actually provides basecolor/metalness data.
+	// Setting isBaseColorMetalnessAvailable = true when the resource isn't
+	// bound causes NRD to read uninitialised data, corrupting reprojection.
+	bool hasBCM = false;
+	for (int i = 0; i < desc.resourceCount; i++)
+	{
+		if (desc.resources[i].type == nrd::ResourceType::IN_BASECOLOR_METALNESS)
+		{
+			hasBCM = true;
+			break;
+		}
+	}
+
 	// Make local copy of common settings with per-slot dimensions
 	nrd::CommonSettings localSettings = commonSettings;
+	localSettings.timeDeltaBetweenFrames = frame.deltaTime * 1000.0f; // NRD expects milliseconds
+	localSettings.isBaseColorMetalnessAvailable = hasBCM;
 	localSettings.resourceSize[0] = (uint16_t)slot.width;
 	localSettings.resourceSize[1] = (uint16_t)slot.height;
 	localSettings.resourceSizePrev[0] = (uint16_t)slot.width;
@@ -347,8 +411,9 @@ void RenderAPI_D3D12::NRDDenoise(int denoiserType)
 
 	slot.integration.SetCommonSettings(localSettings);
 
-	// Build resource snapshot from table
-	const DenoiserTypeDesc& desc = g_DenoiserTypeDescs[denoiserType];
+	// Update per-denoiser settings each frame (e.g. SIGMA lightDirection)
+	ApplyDenoiserSettings(denoiserType, slot);
+
 	nrd::ResourceSnapshot snapshot;
 	snapshot.restoreInitialState = true;
 
@@ -369,21 +434,43 @@ void RenderAPI_D3D12::NRDDenoise(int denoiserType)
 }
 
 
-void RenderAPI_D3D12::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16])
+void RenderAPI_D3D12::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16], float deltaTime)
 {
-	commonSettings.frameIndex = frameIndex;
+	// Unity passes GL.GetGPUProjectionMatrix(proj, false) — standard GPU projection
+	// without RT Y-flip. Apply the render-texture Y-flip here for D3D12 convention.
+	// In column-major layout: elements 4,5,6,7 are column 1 (the Y row values).
+	_viewToClipMatrix[4] = -_viewToClipMatrix[4];
+	_viewToClipMatrix[5] = -_viewToClipMatrix[5];
+	_viewToClipMatrix[6] = -_viewToClipMatrix[6];
+	_viewToClipMatrix[7] = -_viewToClipMatrix[7];
 
-	// Set matrices
+	// Write to ring buffer slot so the render thread can read the correct
+	// frame's matrices even if the main thread has already moved ahead.
+	int slot = frameIndex & MATRIX_RING_MASK;
+	FrameMatrixData& frame = m_matrixRing[slot];
+
+	frame.frameIndex = frameIndex;
+	frame.deltaTime = deltaTime;
 	for (int i = 0; i < 16; ++i)
 	{
-		commonSettings.viewToClipMatrixPrev[i] = m_viewToClipMatrixPrev[i];
-		commonSettings.viewToClipMatrix[i] = _viewToClipMatrix[i];
-		m_viewToClipMatrixPrev[i] = _viewToClipMatrix[i];
+		frame.viewToClipPrev[i] = m_viewToClipMatrixPrev[i];
+		frame.viewToClip[i] = _viewToClipMatrix[i];
 
-		commonSettings.worldToViewMatrixPrev[i] = m_worldToViewMatrixPrev[i];
-		commonSettings.worldToViewMatrix[i] = _worldToViewMatrix[i];
-		m_worldToViewMatrixPrev[i] = _worldToViewMatrix[i];
+		frame.worldToViewPrev[i] = m_worldToViewMatrixPrev[i];
+		frame.worldToView[i] = _worldToViewMatrix[i];
 	}
+
+	// Save current as prev for the next frame's SetMatrix call
+	memcpy(m_viewToClipMatrixPrev, _viewToClipMatrix, sizeof(float) * 16);
+	memcpy(m_worldToViewMatrixPrev, _worldToViewMatrix, sizeof(float) * 16);
+}
+
+
+void RenderAPI_D3D12::SetLightDirection(float x, float y, float z)
+{
+	m_lightDirection[0] = x;
+	m_lightDirection[1] = y;
+	m_lightDirection[2] = z;
 }
 
 

@@ -119,39 +119,51 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
 
 // --------------------------------------------------------------------------
 // Generic render thread callback (try_to_lock — skip frame if init/release in progress)
+//
+// Event ID encoding (set by C# via GL.IssuePluginEvent):
+//   bits 0-7:   denoiser type (nrd::Denoiser enum, 0..18)
+//   bits 8-9:   matrix ring buffer slot (frameCount & 3)
+//   bits 10-31: unused
 
 static void UNITY_INTERFACE_API OnExecuteEventGeneric(int eventID)
 {
-	if (eventID < 0 || eventID >= NRD_DENOISER_COUNT)
+	int denoiserType = eventID & 0xFF;
+	int frameSlot = (eventID >> 8) & MATRIX_RING_MASK;
+
+	if (denoiserType < 0 || denoiserType >= NRD_DENOISER_COUNT)
 		return;
 
 	std::unique_lock<std::mutex> lock(g_mutex, std::try_to_lock);
 	if (!lock.owns_lock())
 		return;
 
-	if (s_CurrentAPI == NULL || !g_initialized[eventID])
+	if (s_CurrentAPI == NULL || !g_initialized[denoiserType])
 		return;
 
-	s_CurrentAPI->NRDDenoise(eventID);
+	s_CurrentAPI->NRDDenoise(denoiserType, frameSlot);
 }
 
 
 // --------------------------------------------------------------------------
 // Legacy render thread trampolines (map old per-denoiser callbacks to generic)
+// These preserve the frame slot from the eventID if one was encoded.
 
 static void UNITY_INTERFACE_API OnExecuteEventLegacyRelax(int eventID)
 {
-	OnExecuteEventGeneric((int)nrd::Denoiser::RELAX_DIFFUSE);
+	int frameSlot = (eventID >> 8) & MATRIX_RING_MASK;
+	OnExecuteEventGeneric((frameSlot << 8) | (int)nrd::Denoiser::RELAX_DIFFUSE);
 }
 
 static void UNITY_INTERFACE_API OnExecuteEventLegacySigma(int eventID)
 {
-	OnExecuteEventGeneric((int)nrd::Denoiser::SIGMA_SHADOW);
+	int frameSlot = (eventID >> 8) & MATRIX_RING_MASK;
+	OnExecuteEventGeneric((frameSlot << 8) | (int)nrd::Denoiser::SIGMA_SHADOW);
 }
 
 static void UNITY_INTERFACE_API OnExecuteEventLegacyReblur(int eventID)
 {
-	OnExecuteEventGeneric((int)nrd::Denoiser::REBLUR_DIFFUSE);
+	int frameSlot = (eventID >> 8) & MATRIX_RING_MASK;
+	OnExecuteEventGeneric((frameSlot << 8) | (int)nrd::Denoiser::REBLUR_DIFFUSE);
 }
 
 
@@ -233,12 +245,21 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseAll()
 }
 
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16])
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime)
 {
 	if (s_CurrentAPI == nullptr)
 		return;
 
-	s_CurrentAPI->SetMatrix(frameIndex, viewToClipMatrix, worldToViewMatrix);
+	s_CurrentAPI->SetMatrix(frameIndex, viewToClipMatrix, worldToViewMatrix, deltaTime);
+}
+
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetLightDirection(float x, float y, float z)
+{
+	if (s_CurrentAPI == nullptr)
+		return;
+
+	s_CurrentAPI->SetLightDirection(x, y, z);
 }
 
 
