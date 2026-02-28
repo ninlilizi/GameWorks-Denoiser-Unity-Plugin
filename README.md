@@ -2,7 +2,7 @@
 
 A Unity native plugin wrapping NVIDIA's [NRD](https://github.com/NVIDIAGameWorks/RayTracingDenoiser) library. Provides access to all 19 NRD denoiser types (Reblur, Relax, Sigma, Reference) through a generic data-driven API.
 
-Supports the Unity **D3D11** and **D3D12** renderers.
+Supports the Unity **D3D12** renderer.
 
 ## Building
 
