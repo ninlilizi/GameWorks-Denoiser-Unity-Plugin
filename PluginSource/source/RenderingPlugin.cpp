@@ -263,6 +263,56 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetLightDirection(
 }
 
 
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetRelaxSettings(
+	float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+	float diffusePhiLuminance, float specularPhiLuminance,
+	float diffuseMinLuminanceWeight, float specularMinLuminanceWeight,
+	uint32_t diffuseMaxAccumulatedFrameNum, uint32_t specularMaxAccumulatedFrameNum,
+	uint32_t diffuseMaxFastAccumulatedFrameNum, uint32_t specularMaxFastAccumulatedFrameNum,
+	uint32_t atrousIterationNum, uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly)
+{
+	if (s_CurrentAPI == nullptr)
+		return;
+
+	s_CurrentAPI->SetRelaxSettings(diffusePrepassBlurRadius, specularPrepassBlurRadius,
+		diffusePhiLuminance, specularPhiLuminance,
+		diffuseMinLuminanceWeight, specularMinLuminanceWeight,
+		diffuseMaxAccumulatedFrameNum, specularMaxAccumulatedFrameNum,
+		diffuseMaxFastAccumulatedFrameNum, specularMaxFastAccumulatedFrameNum,
+		atrousIterationNum, hitDistanceReconstructionMode, enableAntiFirefly);
+}
+
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetReblurSettings(
+	float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+	float minBlurRadius, float maxBlurRadius,
+	uint32_t maxAccumulatedFrameNum, uint32_t maxFastAccumulatedFrameNum,
+	float lobeAngleFraction, float roughnessFraction,
+	float minHitDistanceWeight, float planeDistanceSensitivity,
+	uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly)
+{
+	if (s_CurrentAPI == nullptr)
+		return;
+
+	s_CurrentAPI->SetReblurSettings(diffusePrepassBlurRadius, specularPrepassBlurRadius,
+		minBlurRadius, maxBlurRadius,
+		maxAccumulatedFrameNum, maxFastAccumulatedFrameNum,
+		lobeAngleFraction, roughnessFraction,
+		minHitDistanceWeight, planeDistanceSensitivity,
+		hitDistanceReconstructionMode, enableAntiFirefly);
+}
+
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDSetSigmaSettings(
+	float planeDistanceSensitivity, uint32_t maxStabilizedFrameNum)
+{
+	if (s_CurrentAPI == nullptr)
+		return;
+
+	s_CurrentAPI->SetSigmaSettings(planeDistanceSensitivity, maxStabilizedFrameNum);
+}
+
+
 // --------------------------------------------------------------------------
 // Legacy external API — thin wrappers calling the generic API
 

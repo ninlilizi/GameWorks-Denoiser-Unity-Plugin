@@ -127,6 +127,19 @@ private:
 	void NRDReleaseAllSlots();
 	void SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16], float deltaTime);
 	void SetLightDirection(float x, float y, float z) override;
+	void SetRelaxSettings(float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+		float diffusePhiLuminance, float specularPhiLuminance,
+		float diffuseMinLuminanceWeight, float specularMinLuminanceWeight,
+		uint32_t diffuseMaxAccumulatedFrameNum, uint32_t specularMaxAccumulatedFrameNum,
+		uint32_t diffuseMaxFastAccumulatedFrameNum, uint32_t specularMaxFastAccumulatedFrameNum,
+		uint32_t atrousIterationNum, uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly) override;
+	void SetReblurSettings(float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+		float minBlurRadius, float maxBlurRadius,
+		uint32_t maxAccumulatedFrameNum, uint32_t maxFastAccumulatedFrameNum,
+		float lobeAngleFraction, float roughnessFraction,
+		float minHitDistanceWeight, float planeDistanceSensitivity,
+		uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly) override;
+	void SetSigmaSettings(float planeDistanceSensitivity, uint32_t maxStabilizedFrameNum) override;
 
 	bool CreateCommandObjects(DenoiserSlot& slot);
 	void ApplyDenoiserSettings(int type, DenoiserSlot& slot);
@@ -146,6 +159,19 @@ private:
 
 	// Light direction for SIGMA shadow denoisers (direction TO the light source)
 	float m_lightDirection[3] = {};
+
+	// RELAX denoiser settings (set from C# per frame)
+	nrd::RelaxSettings m_relaxSettings = {};
+	bool m_relaxSettingsInitialized = false;
+
+	// REBLUR denoiser settings (set from C# per frame)
+	nrd::ReblurSettings m_reblurSettings = {};
+	bool m_reblurSettingsInitialized = false;
+
+	// SIGMA denoiser settings (set from C# per frame)
+	float m_sigmaPlaneDistanceSensitivity = 0.02f;
+	uint32_t m_sigmaMaxStabilizedFrameNum = 5;
+	bool m_sigmaSettingsInitialized = false;
 };
 
 
@@ -211,18 +237,37 @@ void RenderAPI_D3D12::ApplyDenoiserSettings(int type, DenoiserSlot& slot)
 	{
 	case SettingsFamily::REBLUR:
 	{
-		nrd::ReblurSettings settings = {};
-		settings.enableAntiFirefly = false;
-		settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
-		slot.integration.SetDenoiserSettings(0, &settings);
+		if (m_reblurSettingsInitialized)
+		{
+			slot.integration.SetDenoiserSettings(0, &m_reblurSettings);
+		}
+		else
+		{
+			nrd::ReblurSettings settings = {};
+			settings.enableAntiFirefly = false;
+			settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
+			slot.integration.SetDenoiserSettings(0, &settings);
+		}
 		break;
 	}
 	case SettingsFamily::RELAX:
 	{
-		nrd::RelaxSettings settings = {};
-		settings.enableAntiFirefly = true;
-		settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
-		slot.integration.SetDenoiserSettings(0, &settings);
+		if (m_relaxSettingsInitialized)
+		{
+			slot.integration.SetDenoiserSettings(0, &m_relaxSettings);
+		}
+		else
+		{
+			nrd::RelaxSettings settings = {};
+			settings.enableAntiFirefly = true;
+			settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_5X5;
+			settings.diffusePrepassBlurRadius = 50.0f;
+			settings.specularPrepassBlurRadius = 50.0f;
+			settings.diffusePhiLuminance = 4.0f;
+			settings.diffuseMinLuminanceWeight = 0.2f;
+			settings.atrousIterationNum = 6;
+			slot.integration.SetDenoiserSettings(0, &settings);
+		}
 		break;
 	}
 	case SettingsFamily::SIGMA:
@@ -231,6 +276,11 @@ void RenderAPI_D3D12::ApplyDenoiserSettings(int type, DenoiserSlot& slot)
 		settings.lightDirection[0] = m_lightDirection[0];
 		settings.lightDirection[1] = m_lightDirection[1];
 		settings.lightDirection[2] = m_lightDirection[2];
+		if (m_sigmaSettingsInitialized)
+		{
+			settings.planeDistanceSensitivity = m_sigmaPlaneDistanceSensitivity;
+			settings.maxStabilizedFrameNum = m_sigmaMaxStabilizedFrameNum;
+		}
 		slot.integration.SetDenoiserSettings(0, &settings);
 		break;
 	}
@@ -471,6 +521,63 @@ void RenderAPI_D3D12::SetLightDirection(float x, float y, float z)
 	m_lightDirection[0] = x;
 	m_lightDirection[1] = y;
 	m_lightDirection[2] = z;
+}
+
+
+void RenderAPI_D3D12::SetRelaxSettings(float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+	float diffusePhiLuminance, float specularPhiLuminance,
+	float diffuseMinLuminanceWeight, float specularMinLuminanceWeight,
+	uint32_t diffuseMaxAccumulatedFrameNum, uint32_t specularMaxAccumulatedFrameNum,
+	uint32_t diffuseMaxFastAccumulatedFrameNum, uint32_t specularMaxFastAccumulatedFrameNum,
+	uint32_t atrousIterationNum, uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly)
+{
+	m_relaxSettings = {};
+	m_relaxSettings.diffusePrepassBlurRadius = diffusePrepassBlurRadius;
+	m_relaxSettings.specularPrepassBlurRadius = specularPrepassBlurRadius;
+	m_relaxSettings.diffusePhiLuminance = diffusePhiLuminance;
+	m_relaxSettings.specularPhiLuminance = specularPhiLuminance;
+	m_relaxSettings.diffuseMinLuminanceWeight = diffuseMinLuminanceWeight;
+	m_relaxSettings.specularMinLuminanceWeight = specularMinLuminanceWeight;
+	m_relaxSettings.diffuseMaxAccumulatedFrameNum = diffuseMaxAccumulatedFrameNum;
+	m_relaxSettings.specularMaxAccumulatedFrameNum = specularMaxAccumulatedFrameNum;
+	m_relaxSettings.diffuseMaxFastAccumulatedFrameNum = diffuseMaxFastAccumulatedFrameNum;
+	m_relaxSettings.specularMaxFastAccumulatedFrameNum = specularMaxFastAccumulatedFrameNum;
+	m_relaxSettings.atrousIterationNum = atrousIterationNum;
+	m_relaxSettings.hitDistanceReconstructionMode = (nrd::HitDistanceReconstructionMode)hitDistanceReconstructionMode;
+	m_relaxSettings.enableAntiFirefly = enableAntiFirefly;
+	m_relaxSettingsInitialized = true;
+}
+
+
+void RenderAPI_D3D12::SetReblurSettings(float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+	float minBlurRadius, float maxBlurRadius,
+	uint32_t maxAccumulatedFrameNum, uint32_t maxFastAccumulatedFrameNum,
+	float lobeAngleFraction, float roughnessFraction,
+	float minHitDistanceWeight, float planeDistanceSensitivity,
+	uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly)
+{
+	m_reblurSettings = {};
+	m_reblurSettings.diffusePrepassBlurRadius = diffusePrepassBlurRadius;
+	m_reblurSettings.specularPrepassBlurRadius = specularPrepassBlurRadius;
+	m_reblurSettings.minBlurRadius = minBlurRadius;
+	m_reblurSettings.maxBlurRadius = maxBlurRadius;
+	m_reblurSettings.maxAccumulatedFrameNum = maxAccumulatedFrameNum;
+	m_reblurSettings.maxFastAccumulatedFrameNum = maxFastAccumulatedFrameNum;
+	m_reblurSettings.lobeAngleFraction = lobeAngleFraction;
+	m_reblurSettings.roughnessFraction = roughnessFraction;
+	m_reblurSettings.minHitDistanceWeight = minHitDistanceWeight;
+	m_reblurSettings.planeDistanceSensitivity = planeDistanceSensitivity;
+	m_reblurSettings.hitDistanceReconstructionMode = (nrd::HitDistanceReconstructionMode)hitDistanceReconstructionMode;
+	m_reblurSettings.enableAntiFirefly = enableAntiFirefly;
+	m_reblurSettingsInitialized = true;
+}
+
+
+void RenderAPI_D3D12::SetSigmaSettings(float planeDistanceSensitivity, uint32_t maxStabilizedFrameNum)
+{
+	m_sigmaPlaneDistanceSensitivity = planeDistanceSensitivity;
+	m_sigmaMaxStabilizedFrameNum = maxStabilizedFrameNum;
+	m_sigmaSettingsInitialized = true;
 }
 
 

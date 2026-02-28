@@ -3,6 +3,7 @@
 #include "Unity/IUnityGraphics.h"
 
 #include <stddef.h>
+#include <cstdint>
 #include <d3d12.h>
 
 struct IUnityInterfaces;
@@ -36,6 +37,19 @@ public:
 	virtual void NRDReleaseAllSlots() {}
 	virtual void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime) = 0;
 	virtual void SetLightDirection(float x, float y, float z) {}
+	virtual void SetRelaxSettings(float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+		float diffusePhiLuminance, float specularPhiLuminance,
+		float diffuseMinLuminanceWeight, float specularMinLuminanceWeight,
+		uint32_t diffuseMaxAccumulatedFrameNum, uint32_t specularMaxAccumulatedFrameNum,
+		uint32_t diffuseMaxFastAccumulatedFrameNum, uint32_t specularMaxFastAccumulatedFrameNum,
+		uint32_t atrousIterationNum, uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly) {}
+	virtual void SetReblurSettings(float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+		float minBlurRadius, float maxBlurRadius,
+		uint32_t maxAccumulatedFrameNum, uint32_t maxFastAccumulatedFrameNum,
+		float lobeAngleFraction, float roughnessFraction,
+		float minHitDistanceWeight, float planeDistanceSensitivity,
+		uint32_t hitDistanceReconstructionMode, bool enableAntiFirefly) {}
+	virtual void SetSigmaSettings(float planeDistanceSensitivity, uint32_t maxStabilizedFrameNum) {}
 	virtual int GetLastInitError() { return 6; }
 };
 

@@ -21,4 +21,7 @@ EXPORTS
    NRDExecuteRelax
    NRDExecuteSigma
    NRDExecuteReblur
-
+   NRDSetLightDirection
+   NRDSetRelaxSettings
+   NRDSetReblurSettings
+   NRDSetSigmaSettings
