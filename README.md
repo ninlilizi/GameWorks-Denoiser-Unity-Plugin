@@ -47,6 +47,8 @@ The plugin supports all 19 NRD denoiser types, selected by integer index:
 
 ### Exported Functions
 
+#### Lifecycle
+
 ```csharp
 // Initialize a denoiser with its required resources (main thread)
 [DllImport("NKLIDenoising")]
@@ -60,10 +62,14 @@ private static extern void NRDRelease(int denoiserType);
 [DllImport("NKLIDenoising")]
 private static extern void NRDReleaseAll();
 
-// Get the render-thread callback pointer (main thread)
+// Get the last error code from NRDInitialize (main thread)
 [DllImport("NKLIDenoising")]
-private static extern IntPtr NRDGetExecuteCallback();
+private static extern int NRDGetLastError();
+```
 
+#### Per-Frame State
+
+```csharp
 // Set camera matrices and timing for the current frame (main thread, call before execute)
 [DllImport("NKLIDenoising")]
 private static extern void NRDSetMatrix(int frameIndex, float[] viewToClipMatrix, float[] worldToViewMatrix, float deltaTime);
@@ -71,6 +77,88 @@ private static extern void NRDSetMatrix(int frameIndex, float[] viewToClipMatrix
 // Set the primary light direction for SIGMA shadow denoisers (main thread, call before execute)
 [DllImport("NKLIDenoising")]
 private static extern void NRDSetLightDirection(float x, float y, float z);
+```
+
+#### Denoiser Settings
+
+Settings are cached on the native side. Only re-send when values change.
+
+```csharp
+// Configure RELAX_DIFFUSE and RELAX_SPECULAR instances
+[DllImport("NKLIDenoising")]
+private static extern void NRDSetRelaxSettings(
+    float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+    float diffusePhiLuminance, float specularPhiLuminance,
+    float diffuseMinLuminanceWeight, float specularMinLuminanceWeight,
+    uint diffuseMaxAccumulatedFrameNum, uint specularMaxAccumulatedFrameNum,
+    uint diffuseMaxFastAccumulatedFrameNum, uint specularMaxFastAccumulatedFrameNum,
+    uint atrousIterationNum, uint hitDistanceReconstructionMode, bool enableAntiFirefly);
+
+// Configure REBLUR_DIFFUSE instance
+[DllImport("NKLIDenoising")]
+private static extern void NRDSetReblurSettings(
+    float diffusePrepassBlurRadius, float specularPrepassBlurRadius,
+    float minBlurRadius, float maxBlurRadius,
+    uint maxAccumulatedFrameNum, uint maxFastAccumulatedFrameNum,
+    float lobeAngleFraction, float roughnessFraction,
+    float minHitDistanceWeight, float planeDistanceSensitivity,
+    uint hitDistanceReconstructionMode, bool enableAntiFirefly);
+
+// Configure SIGMA_SHADOW instance
+[DllImport("NKLIDenoising")]
+private static extern void NRDSetSigmaSettings(
+    float planeDistanceSensitivity, uint maxStabilizedFrameNum);
+```
+
+#### Dispatch
+
+```csharp
+// Get render-thread callback that executes a SINGLE denoiser (legacy — see NRDGetBatchCallback)
+[DllImport("NKLIDenoising")]
+private static extern IntPtr NRDGetExecuteCallback();
+
+// Get render-thread callback that executes ALL initialized denoisers in one submission (preferred)
+[DllImport("NKLIDenoising")]
+private static extern IntPtr NRDGetBatchCallback();
+```
+
+### Batch Dispatch vs Individual Execute
+
+The plugin provides two dispatch mechanisms:
+
+**`NRDGetExecuteCallback()`** — Executes a single denoiser per `IssuePluginEvent` call. The event ID encodes both the denoiser type (bits 0-7) and the matrix ring buffer slot (bits 8-9): `(frameSlot << 8) | denoiserType`. Each call creates a separate D3D12 command list, submits it, and waits for the previous frame's fence.
+
+**`NRDGetBatchCallback()`** (preferred) — Executes all initialized denoisers in a single `IssuePluginEvent` call. The event ID contains only the frame slot (bits 0-1): `frameCount & 0x3`. Internally, the batch callback:
+
+1. Iterates all `NRD_DENOISER_COUNT` slots, collecting those where `g_initialized[i] == true`
+2. Resets a single shared D3D12 command allocator and command list
+3. Records all NRD dispatches into the shared command list, with `restoreInitialState = false`
+4. Tracks which input resources have been transitioned to compute-SRV state by prior denoisers; subsequent denoisers declare these as already-in-SRV, so NRI sees matching states and skips the barrier entirely
+5. Closes and submits the command list once
+6. Reports both output (UAV) and input (compute-SRV) resource states back to Unity's resource tracking
+
+This eliminates ~28 redundant UAV/SRV barrier transitions per frame from shared input textures (MV, NR, VZ, BCM) that would otherwise be transitioned independently by each denoiser. It also reduces render-thread overhead from repeated plugin callback entry/exit and D3D12 command list create/close/submit cycles.
+
+### Error Handling
+
+`NRDGetLastError()` returns the error code from the most recent `NRDInitialize` call:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | `denoiserType` out of range |
+| 2 | Graphics API not initialized (`s_CurrentAPI` is null) |
+| 3 | Resource count mismatch |
+| 4 | `CreateCommandObjects` failed |
+| 5 | `RecreateD3D12` failed |
+| 6 | Unknown |
+
+**Note:** `NRDGetLastError()` may throw `System.EntryPointNotFoundException` on older plugin builds. Wrap in try/catch:
+
+```csharp
+bool ok = NRDInitialize(...);
+int err = -1;
+try { err = NRDGetLastError(); } catch (System.EntryPointNotFoundException) { err = -99; }
 ```
 
 ### Resource Arrays
@@ -223,9 +311,7 @@ NRDInitialize((int)NRDDenoiserType.SIGMA_SHADOW, width, height,
 
 ### Execute (per frame)
 
-Set matrices, light direction, flush the GPU command buffer, then issue plugin events.
-
-The event ID encodes both the denoiser type (bits 0-7) and the matrix ring buffer slot (bits 8-9). This ensures the render thread reads the correct frame's matrices even if the main thread has moved ahead.
+Set matrices, light direction, optionally update settings, flush the GPU, then issue the plugin event.
 
 ```csharp
 // 1. Prepare NRD input textures (compute shader dispatches, blits, etc.)
@@ -251,19 +337,65 @@ if (Sun != null)
     NRDSetLightDirection(sunDir.x, sunDir.y, sunDir.z);
 }
 
-// 4. CRITICAL (D3D12): Flush all pending GPU commands before issuing plugin events.
+// 4. Update settings (only when changed — cached on the native side)
+if (settingsDirty)
+{
+    NRDSetRelaxSettings(...);
+    NRDSetReblurSettings(...);
+    NRDSetSigmaSettings(...);
+    settingsDirty = false;
+}
+
+// 5. CRITICAL (D3D12): Flush all pending GPU commands before issuing plugin events.
 //    Without this, the plugin's D3D12 command list may execute BEFORE the compute
 //    dispatches that prepared NRD's input textures, causing NRD to read stale data
 //    from the previous frame and producing temporal drift in the denoised output.
 GL.Flush();
 
-// 5. Execute denoisers on the render thread.
-//    Encode the ring buffer slot (frameCount & 3) in bits 8-9 of the event ID.
+// 6. Execute ALL denoisers in one batch (preferred).
+//    Event ID = frame slot only (bits 0-1). No denoiser type encoding needed.
+int frameSlot = Time.frameCount & 0x3;
+IntPtr batchCallback = NRDGetBatchCallback();
+GL.IssuePluginEvent(batchCallback, frameSlot);
+```
+
+#### Individual Execute (legacy)
+
+To execute denoisers individually, use `NRDGetExecuteCallback()`. The event ID encodes both the denoiser type (bits 0-7) and the matrix ring buffer slot (bits 8-9):
+
+```csharp
 int frameSlot = Time.frameCount & 0x3;
 IntPtr executeCallback = NRDGetExecuteCallback();
 GL.IssuePluginEvent(executeCallback, (frameSlot << 8) | (int)NRDDenoiserType.RELAX_DIFFUSE);
 GL.IssuePluginEvent(executeCallback, (frameSlot << 8) | (int)NRDDenoiserType.SIGMA_SHADOW);
 ```
+
+**Note the different event ID encoding**: batch uses `frameSlot` directly, individual execute uses `(frameSlot << 8) | denoiserType`.
+
+### Async Compute
+
+The batch callback is compatible with `CommandBuffer.IssuePluginEvent` and `Graphics.ExecuteCommandBufferAsync`, allowing NRD to overlap with other GPU work:
+
+```csharp
+// GPU fence after all RT dispatches complete
+GraphicsFence fenceInputs = Graphics.CreateAsyncGraphicsFence();
+
+// Submit NRD on async compute queue
+CommandBuffer cmdNRD = new CommandBuffer();
+cmdNRD.SetExecutionFlags(CommandBufferExecutionFlags.AsyncCompute);
+cmdNRD.WaitOnAsyncGraphicsFence(fenceInputs);
+cmdNRD.IssuePluginEvent(NRDGetBatchCallback(), frameCount & 0x3);
+GraphicsFence fenceNRD = cmdNRD.CreateAsyncGraphicsFence();
+
+Graphics.ExecuteCommandBufferAsync(cmdNRD, ComputeQueueType.Background);
+
+// ... do other work (volumetric dispatches, upsamples, etc.) ...
+
+// Wait for NRD before reading output textures
+cmd.WaitOnAsyncGraphicsFence(fenceNRD);
+```
+
+Requires `SystemInfo.supportsAsyncCompute && SystemInfo.supportsGraphicsFence`. Fall back to synchronous graphics-queue dispatch otherwise.
 
 ### Cleanup
 
@@ -280,6 +412,26 @@ Or release individually:
 NRDRelease((int)NRDDenoiserType.RELAX_DIFFUSE);
 ```
 
+## Important Notes
+
+### Temporal History Initialization
+
+All input/output render textures **must** be cleared to known-safe values before the first NRD dispatch. Uninitialized GPU memory in history buffers causes persistent ghosting artifacts — NRD's temporal accumulation blends the garbage into its internal state and it takes many frames (or never) to purge.
+
+Safe clear values:
+* **Radiance/hit-distance inputs** — `(0,0,0,0)`: NRD interprets as "no contribution"
+* **Shadow penumbra inputs** — `(0,0,0,0)`: no shadow data
+
+This also applies after any resource recreation (e.g., resolution change). Clear all textures passed to `NRDInitialize` before the first dispatch following reinitialization.
+
+### Texture Pointer Persistence
+
+`GetNativeTexturePtr()` values are captured at `NRDInitialize` time. If a `RenderTexture` is released and recreated (e.g., on resolution change), you **must** call `NRDReleaseAll()` and reinitialize all instances with fresh pointers. Stale pointers will cause GPU faults or silent corruption.
+
+### Auto-Resize
+
+`NRDInitialize` automatically detects dimension changes. If `renderWidth` or `renderHeight` differs from the previous call for the same `denoiserType`, it releases and recreates the instance internally. No need to call `NRDRelease` first.
+
 ## Legacy API
 
-The legacy per-denoiser functions (`NRDInitializeRelax`, `NRDExecuteRelax`, `NRDReleaseRelax`, and equivalents for Sigma/Reblur) are still exported for backward compatibility. New code should use the generic API above.
+The legacy per-denoiser functions (`NRDInitializeRelax`, `NRDExecuteRelax`, `NRDReleaseRelax`, and equivalents for Sigma/Reblur) are still exported for backward compatibility. They are thin wrappers around the generic API. New code should use the generic API with `NRDGetBatchCallback()` for dispatch.
