@@ -78,6 +78,25 @@ static nrd::Resource MakeD3D12Resource(void* ptr)
 	return res;
 }
 
+// Helper: create an nrd::Resource declared in SRV state.
+// Used for resources left in SRV by a previous denoiser (restoreInitialState=false).
+// Stages must be COMPUTE_SHADER to match NRD's internal SRV transitions exactly,
+// which maps to D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE (0x40).
+static nrd::Resource MakeD3D12ResourceSRV(void* ptr)
+{
+	nrd::Resource res = {};
+	ID3D12Resource* d3dRes = (ID3D12Resource*)ptr;
+	res.d3d12.resource = d3dRes;
+
+	D3D12_RESOURCE_DESC desc = d3dRes->GetDesc();
+	res.d3d12.format = (DXGIFormat)ResolveTypelessFormat(desc.Format);
+
+	res.state.access = nri::AccessBits::SHADER_RESOURCE;
+	res.state.layout = nri::Layout::SHADER_RESOURCE;
+	res.state.stages = nri::StageBits::COMPUTE_SHADER;
+	return res;
+}
+
 
 // Per-denoiser runtime state — lazily initialized
 struct DenoiserSlot
@@ -142,6 +161,8 @@ private:
 	void SetSigmaSettings(float planeDistanceSensitivity, uint32_t maxStabilizedFrameNum) override;
 
 	bool CreateCommandObjects(DenoiserSlot& slot);
+	bool CreateBatchCommandObjects();
+	void NRDDenoiseBatch(int frameSlot, const int* denoiserTypes, int count) override;
 	void ApplyDenoiserSettings(int type, DenoiserSlot& slot);
 	void SetCommonSettings();
 	int GetLastInitError() override { return m_lastInitError; }
@@ -156,6 +177,12 @@ private:
 	FrameMatrixData m_matrixRing[MATRIX_RING_SIZE];
 	float m_viewToClipMatrixPrev[16];
 	float m_worldToViewMatrixPrev[16];
+
+	// Shared command objects for batch denoising (one submission for all denoisers)
+	ID3D12CommandAllocator* m_batchCmdAlloc = nullptr;
+	ID3D12GraphicsCommandList* m_batchCmdList = nullptr;
+	bool m_batchCmdObjectsCreated = false;
+	UINT64 m_batchLastFenceValue = 0;
 
 	// Light direction for SIGMA shadow denoisers (direction TO the light source)
 	float m_lightDirection[3] = {};
@@ -214,6 +241,28 @@ bool RenderAPI_D3D12::CreateCommandObjects(DenoiserSlot& slot)
 
 	slot.cmdList->Close();
 	slot.cmdObjectsCreated = true;
+	return true;
+}
+
+
+bool RenderAPI_D3D12::CreateBatchCommandObjects()
+{
+	ID3D12Device* device = s_D3D12->GetDevice();
+	HRESULT hr;
+
+	hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_batchCmdAlloc));
+	if (FAILED(hr))
+		return false;
+
+	hr = device->CreateCommandList(kNodeMask, D3D12_COMMAND_LIST_TYPE_DIRECT, m_batchCmdAlloc, nullptr, IID_PPV_ARGS(&m_batchCmdList));
+	if (FAILED(hr))
+	{
+		SAFE_RELEASE(m_batchCmdAlloc);
+		return false;
+	}
+
+	m_batchCmdList->Close();
+	m_batchCmdObjectsCreated = true;
 	return true;
 }
 
@@ -484,6 +533,151 @@ void RenderAPI_D3D12::NRDDenoise(int denoiserType, int frameSlot)
 }
 
 
+void RenderAPI_D3D12::NRDDenoiseBatch(int frameSlot, const int* denoiserTypes, int count)
+{
+	if (count == 0)
+		return;
+
+	if (!m_batchCmdObjectsCreated)
+	{
+		if (!CreateBatchCommandObjects())
+			return;
+	}
+
+	// Single fence wait — batch used same command list last frame
+	if (m_batchLastFenceValue > 0 && s_D3D12 != nullptr)
+	{
+		ID3D12Fence* frameFence = s_D3D12->GetFrameFence();
+		if (frameFence && frameFence->GetCompletedValue() < m_batchLastFenceValue)
+		{
+			HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			if (event)
+			{
+				frameFence->SetEventOnCompletion(m_batchLastFenceValue, event);
+				WaitForSingleObject(event, 2000);
+				CloseHandle(event);
+			}
+		}
+	}
+
+	// Apply matrices from ring buffer (same for all denoisers this frame)
+	const FrameMatrixData& frame = m_matrixRing[frameSlot & MATRIX_RING_MASK];
+	commonSettings.frameIndex = frame.frameIndex;
+	memcpy(commonSettings.viewToClipMatrix, frame.viewToClip, sizeof(float) * 16);
+	memcpy(commonSettings.viewToClipMatrixPrev, frame.viewToClipPrev, sizeof(float) * 16);
+	memcpy(commonSettings.worldToViewMatrix, frame.worldToView, sizeof(float) * 16);
+	memcpy(commonSettings.worldToViewMatrixPrev, frame.worldToViewPrev, sizeof(float) * 16);
+
+	// Reset ONCE, begin recording
+	m_batchCmdAlloc->Reset();
+	m_batchCmdList->Reset(m_batchCmdAlloc, NULL);
+
+	// Track input resources transitioned to SRV by previous denoisers.
+	// With restoreInitialState=false, NRD leaves inputs in compute-SRV state
+	// (D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE). Subsequent denoisers
+	// declare these as SRV so NRI sees current==required → no barrier.
+	// This eliminates ~28 redundant UAV↔SRV transitions per frame.
+	void* srvResources[NRD_DENOISER_COUNT * MAX_DENOISER_RESOURCES];
+	int srvCount = 0;
+
+	auto isInSRV = [&](void* ptr) -> bool {
+		for (int i = 0; i < srvCount; i++)
+			if (srvResources[i] == ptr) return true;
+		return false;
+	};
+
+	// Record each denoiser's dispatches into the shared command list
+	for (int a = 0; a < count; a++)
+	{
+		int denoiserType = denoiserTypes[a];
+		DenoiserSlot& slot = m_slots[denoiserType];
+		const DenoiserTypeDesc& desc = g_DenoiserTypeDescs[denoiserType];
+
+		// Check BCM availability
+		bool hasBCM = false;
+		for (int i = 0; i < desc.resourceCount; i++)
+		{
+			if (desc.resources[i].type == nrd::ResourceType::IN_BASECOLOR_METALNESS)
+			{ hasBCM = true; break; }
+		}
+
+		// Per-slot common settings (dimensions may differ between denoisers)
+		nrd::CommonSettings localSettings = commonSettings;
+		localSettings.timeDeltaBetweenFrames = frame.deltaTime * 1000.0f;
+		localSettings.isBaseColorMetalnessAvailable = hasBCM;
+		localSettings.resourceSize[0] = (uint16_t)slot.width;
+		localSettings.resourceSize[1] = (uint16_t)slot.height;
+		localSettings.resourceSizePrev[0] = (uint16_t)slot.width;
+		localSettings.resourceSizePrev[1] = (uint16_t)slot.height;
+		localSettings.rectSize[0] = (uint16_t)slot.width;
+		localSettings.rectSize[1] = (uint16_t)slot.height;
+		localSettings.rectSizePrev[0] = (uint16_t)slot.width;
+		localSettings.rectSizePrev[1] = (uint16_t)slot.height;
+
+		slot.integration.NewFrame();
+		slot.integration.SetCommonSettings(localSettings);
+		ApplyDenoiserSettings(denoiserType, slot);
+
+		nrd::ResourceSnapshot snapshot;
+		snapshot.restoreInitialState = false; // Never restore — eliminates barriers between denoisers
+
+		for (int i = 0; i < desc.resourceCount; i++)
+		{
+			// Input resources left in SRV by a previous denoiser: declare as SRV
+			// so NRI sees matching states and skips the barrier entirely
+			if (!desc.resources[i].isOutput && isInSRV(slot.resources[i]))
+				snapshot.SetResource(desc.resources[i].type, MakeD3D12ResourceSRV(slot.resources[i]));
+			else
+				snapshot.SetResource(desc.resources[i].type, MakeD3D12Resource(slot.resources[i]));
+		}
+
+		// Record into SHARED command list (not slot's own)
+		nri::CommandBufferD3D12Desc cmdBufferDesc = {};
+		cmdBufferDesc.d3d12CommandList = m_batchCmdList;
+		cmdBufferDesc.d3d12CommandAllocator = m_batchCmdAlloc;
+
+		nrd::Identifier id = 0;
+		slot.integration.DenoiseD3D12(&id, 1, cmdBufferDesc, snapshot);
+
+		// All input resources are now in SRV state (NRD transitions them for reading)
+		for (int i = 0; i < desc.resourceCount; i++)
+		{
+			if (!desc.resources[i].isOutput && !isInSRV(slot.resources[i]))
+				srvResources[srvCount++] = slot.resources[i];
+		}
+	}
+
+	// Close ONCE
+	m_batchCmdList->Close();
+
+	// Merge output states + report input state changes for Unity's resource tracking
+	UnityGraphicsD3D12ResourceState mergedStates[NRD_DENOISER_COUNT * MAX_DENOISER_RESOURCES];
+	int mergedCount = 0;
+
+	// Output resources remain in UAV (as before)
+	for (int a = 0; a < count; a++)
+	{
+		DenoiserSlot& slot = m_slots[denoiserTypes[a]];
+		for (int s = 0; s < slot.outputStateCount; s++)
+			mergedStates[mergedCount++] = slot.outputStates[s];
+	}
+
+	// Input resources are now in compute-SRV state — tell Unity so it
+	// inserts the correct transitions for subsequent operations
+	for (int i = 0; i < srvCount; i++)
+	{
+		UnityGraphicsD3D12ResourceState& state = mergedStates[mergedCount++];
+		state = {};
+		state.resource = (ID3D12Resource*)srvResources[i];
+		state.expected = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		state.current = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+	}
+
+	// Submit ONCE
+	m_batchLastFenceValue = s_D3D12->ExecuteCommandList(m_batchCmdList, mergedCount, mergedStates);
+}
+
+
 void RenderAPI_D3D12::SetMatrix(int frameIndex, float _viewToClipMatrix[16], float _worldToViewMatrix[16], float deltaTime)
 {
 	// Unity passes GL.GetGPUProjectionMatrix(proj, false) — standard GPU projection
@@ -588,20 +782,22 @@ void RenderAPI_D3D12::NRDRelease(int denoiserType)
 
 	DenoiserSlot& slot = m_slots[denoiserType];
 
-	// Wait for the GPU to finish executing the last NRD command list
-	// before destroying NRI/NRD resources. Without this, the GPU may
-	// still be reading from D3D12 resources that are about to be freed,
-	// causing a DEVICE_REMOVED error.
-	if (slot.lastFenceValue > 0 && s_D3D12 != nullptr)
+	// Wait for BOTH per-slot and batch fence values. The batch command list
+	// uses this slot's resources, so we must wait for it to complete too.
+	UINT64 waitValue = slot.lastFenceValue;
+	if (m_batchLastFenceValue > waitValue)
+		waitValue = m_batchLastFenceValue;
+
+	if (waitValue > 0 && s_D3D12 != nullptr)
 	{
 		ID3D12Fence* frameFence = s_D3D12->GetFrameFence();
-		if (frameFence && frameFence->GetCompletedValue() < slot.lastFenceValue)
+		if (frameFence && frameFence->GetCompletedValue() < waitValue)
 		{
 			HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
 			if (event)
 			{
-				frameFence->SetEventOnCompletion(slot.lastFenceValue, event);
-				WaitForSingleObject(event, 5000); // 5s timeout to avoid infinite hang
+				frameFence->SetEventOnCompletion(waitValue, event);
+				WaitForSingleObject(event, 5000);
 				CloseHandle(event);
 			}
 		}
@@ -617,8 +813,8 @@ void RenderAPI_D3D12::NRDReleaseAllSlots()
 	if (s_D3D12 == nullptr)
 		return;
 
-	// Phase 1: Find max fence value across ALL slots, wait once
-	UINT64 maxFenceValue = 0;
+	// Phase 1: Find max fence value across ALL slots + batch, wait once
+	UINT64 maxFenceValue = m_batchLastFenceValue;
 	for (int i = 0; i < NRD_DENOISER_COUNT; i++)
 		if (m_slots[i].lastFenceValue > maxFenceValue)
 			maxFenceValue = m_slots[i].lastFenceValue;
@@ -644,6 +840,7 @@ void RenderAPI_D3D12::NRDReleaseAllSlots()
 		m_slots[i].lastFenceValue = 0;
 		m_slots[i].integration.Destroy();
 	}
+	m_batchLastFenceValue = 0;
 }
 
 
@@ -656,6 +853,11 @@ void RenderAPI_D3D12::ReleaseResources()
 		SAFE_RELEASE(m_slots[i].cmdAlloc);
 		m_slots[i].cmdObjectsCreated = false;
 	}
+
+	SAFE_RELEASE(m_batchCmdAlloc);
+	SAFE_RELEASE(m_batchCmdList);
+	m_batchCmdObjectsCreated = false;
+	m_batchLastFenceValue = 0;
 }
 
 

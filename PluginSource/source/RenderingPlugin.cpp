@@ -233,6 +233,40 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDGet
 }
 
 
+// --------------------------------------------------------------------------
+// Batch render thread callback — denoise ALL initialized slots in one submission
+
+static void UNITY_INTERFACE_API OnExecuteEventBatch(int eventID)
+{
+	int frameSlot = eventID & MATRIX_RING_MASK;
+
+	std::unique_lock<std::mutex> lock(g_mutex, std::try_to_lock);
+	if (!lock.owns_lock())
+		return;
+
+	if (s_CurrentAPI == NULL)
+		return;
+
+	// Build list of initialized denoisers
+	int activeTypes[NRD_DENOISER_COUNT];
+	int activeCount = 0;
+	for (int i = 0; i < NRD_DENOISER_COUNT; i++)
+	{
+		if (g_initialized[i])
+			activeTypes[activeCount++] = i;
+	}
+
+	if (activeCount > 0)
+		s_CurrentAPI->NRDDenoiseBatch(frameSlot, activeTypes, activeCount);
+}
+
+
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDGetBatchCallback()
+{
+	return OnExecuteEventBatch;
+}
+
+
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API NRDReleaseAll()
 {
 	std::lock_guard<std::mutex> lock(g_mutex);

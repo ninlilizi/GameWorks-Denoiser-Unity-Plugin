@@ -33,6 +33,7 @@ public:
 	// Generic NRD interface — denoiserType maps to nrd::Denoiser enum value (0..18)
 	virtual bool NRDInitialize(int denoiserType, int renderWidth, int renderHeight, void** resources, int resourceCount) = 0;
 	virtual void NRDDenoise(int denoiserType, int frameSlot) = 0;
+	virtual void NRDDenoiseBatch(int frameSlot, const int* denoiserTypes, int count) {}
 	virtual void NRDRelease(int denoiserType) = 0;
 	virtual void NRDReleaseAllSlots() {}
 	virtual void SetMatrix(int frameIndex, float viewToClipMatrix[16], float worldToViewMatrix[16], float deltaTime) = 0;
